@@ -28,8 +28,8 @@ class CollapsibleSection(Frame):
         self._sep = Frame(self, height=1, style="SectionSep.TFrame")
         self._sep.pack(fill=X, padx=4)
 
-        # Content frame — users add widgets to this
-        self.content = Frame(self, style="Sidebar.TFrame")
+        # Content frame — users add widgets to this (white background)
+        self.content = Frame(self, style="SidebarContent.TFrame")
         if expanded:
             self.content.pack(fill=BOTH, padx=8, pady=(2, 6))
 

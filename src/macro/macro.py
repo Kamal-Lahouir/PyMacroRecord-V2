@@ -71,6 +71,10 @@ class Macro:
         self.event_delta_time=0
         userSettings = self.user_settings.settings_dict
         self.showEventsOnStatusBar = userSettings["Recordings"]["Show_Events_On_Status_Bar"]
+        # Mouse move resolution: minimum pixel distance between recorded moves
+        self._move_resolution = max(1, userSettings["Recordings"].get("Mouse_Move_Resolution", 1))
+        self._last_move_x = None
+        self._last_move_y = None
         if (
             userSettings["Recordings"]["Mouse_Move"]
             and userSettings["Recordings"]["Mouse_Click"]
@@ -370,6 +374,14 @@ class Macro:
         self.time=timenow
 
     def __on_move(self, x, y):
+        # Skip if cursor hasn't moved far enough (resolution filtering)
+        if self._last_move_x is not None and self._move_resolution > 1:
+            dx = x - self._last_move_x
+            dy = y - self._last_move_y
+            if dx * dx + dy * dy < self._move_resolution * self._move_resolution:
+                return
+        self._last_move_x = x
+        self._last_move_y = y
         self.__get_event_delta_time()
         self.__record_event(
             {"type": "cursorMove", "x": x, "y": y}

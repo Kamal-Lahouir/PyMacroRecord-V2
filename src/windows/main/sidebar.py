@@ -15,7 +15,7 @@ class Sidebar(Frame):
     """Scrollable sidebar with inline playback, recording, and after-playback options."""
 
     def __init__(self, main_app):
-        super().__init__(main_app, width=260, style="Sidebar.TFrame")
+        super().__init__(main_app, width=290, style="Sidebar.TFrame")
         self.pack_propagate(False)  # Keep width stable during PanedWindow resize
         self.main_app = main_app
         self.settings = main_app.settings
@@ -59,10 +59,10 @@ class Sidebar(Frame):
         pc = self.playback_section.content
 
         # Speed
-        speed_frame = Frame(pc, style="Sidebar.TFrame")
+        speed_frame = Frame(pc, style="SidebarContent.TFrame")
         speed_frame.pack(fill=X, pady=2)
         Label(speed_frame, text=sidebar_text.get("speed_label", "Speed") + ":",
-              style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 4))
+              style="SidebarContent.TLabel").pack(side=LEFT, padx=(0, 4))
         self._speed_var = DoubleVar(value=self.settings_dict["Playback"]["Speed"])
         self._speed_spinbox = Spinbox(
             speed_frame,
@@ -78,10 +78,10 @@ class Sidebar(Frame):
         self._speed_spinbox.bind("<FocusOut>", lambda e: self._on_speed_change())
 
         # Repeat Times
-        repeat_frame = Frame(pc, style="Sidebar.TFrame")
+        repeat_frame = Frame(pc, style="SidebarContent.TFrame")
         repeat_frame.pack(fill=X, pady=2)
         Label(repeat_frame, text=sidebar_text.get("repeat_label", "Repeat") + ":",
-              style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 4))
+              style="SidebarContent.TLabel").pack(side=LEFT, padx=(0, 4))
         self._repeat_var = IntVar(value=self.settings_dict["Playback"]["Repeat"]["Times"])
         self._repeat_spinbox = Spinbox(
             repeat_frame,
@@ -96,7 +96,7 @@ class Sidebar(Frame):
         self._repeat_spinbox.bind("<FocusOut>", lambda e: self._on_repeat_change())
 
         # Infinite
-        inf_frame = Frame(pc, style="Sidebar.TFrame")
+        inf_frame = Frame(pc, style="SidebarContent.TFrame")
         inf_frame.pack(fill=X, pady=2)
         self._infinite_var = BooleanVar(
             value=self.settings_dict["Playback"]["Repeat"].get("Infinite", False)
@@ -106,14 +106,14 @@ class Sidebar(Frame):
             text=sidebar_text.get("infinite_label", "Infinite"),
             variable=self._infinite_var,
             command=self._on_infinite_change,
-            style="Sidebar.TCheckbutton",
+            style="SidebarContent.TCheckbutton",
         ).pack(side=LEFT)
 
         # Delay between repeats
-        delay_frame = Frame(pc, style="Sidebar.TFrame")
+        delay_frame = Frame(pc, style="SidebarContent.TFrame")
         delay_frame.pack(fill=X, pady=2)
         Label(delay_frame, text=sidebar_text.get("delay_label", "Delay (s)") + ":",
-              style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 4))
+              style="SidebarContent.TLabel").pack(side=LEFT, padx=(0, 4))
         self._delay_var = IntVar(value=self.settings_dict["Playback"]["Repeat"]["Delay"])
         self._delay_spinbox = Spinbox(
             delay_frame,
@@ -167,7 +167,7 @@ class Sidebar(Frame):
             text=rec_text.get("mouse_movement_text", "Mouse Movement"),
             variable=self._mouse_move_var,
             command=lambda: self._toggle_setting("Recordings", "Mouse_Move"),
-            style="Sidebar.TCheckbutton",
+            style="SidebarContent.TCheckbutton",
         ).pack(fill=X, pady=1)
 
         self._mouse_click_var = BooleanVar(
@@ -178,7 +178,7 @@ class Sidebar(Frame):
             text=rec_text.get("mouse_click_text", "Mouse Click"),
             variable=self._mouse_click_var,
             command=lambda: self._toggle_setting("Recordings", "Mouse_Click"),
-            style="Sidebar.TCheckbutton",
+            style="SidebarContent.TCheckbutton",
         ).pack(fill=X, pady=1)
 
         self._keyboard_var = BooleanVar(
@@ -189,8 +189,34 @@ class Sidebar(Frame):
             text=rec_text.get("keyboard_text", "Keyboard"),
             variable=self._keyboard_var,
             command=lambda: self._toggle_setting("Recordings", "Keyboard"),
-            style="Sidebar.TCheckbutton",
+            style="SidebarContent.TCheckbutton",
         ).pack(fill=X, pady=1)
+
+        # Mouse move resolution (pixels)
+        res_frame = Frame(rc, style="SidebarContent.TFrame")
+        res_frame.pack(fill=X, pady=(4, 1))
+        Label(
+            res_frame,
+            text=sidebar_text.get("resolution_label", "Move resolution") + ":",
+            style="SidebarContent.TLabel",
+        ).pack(side=LEFT, padx=(0, 4))
+        self._resolution_var = IntVar(
+            value=self.settings_dict["Recordings"].get("Mouse_Move_Resolution", 1)
+        )
+        self._resolution_spinbox = Spinbox(
+            res_frame,
+            from_=1,
+            to=100,
+            width=4,
+            textvariable=self._resolution_var,
+            command=self._on_resolution_change,
+        )
+        self._resolution_spinbox.pack(side=LEFT)
+        Label(res_frame, text="px", style="SidebarContent.TLabel").pack(
+            side=LEFT, padx=(2, 0)
+        )
+        self._resolution_spinbox.bind("<Return>", lambda e: self._on_resolution_change())
+        self._resolution_spinbox.bind("<FocusOut>", lambda e: self._on_resolution_change())
 
         # ── After Playback Section ───────────────────────────────────
 
@@ -219,7 +245,7 @@ class Sidebar(Frame):
             value=self.settings_dict["After_Playback"]["Mode"]
         )
         Label(ac, text=after_text.get("sub_text", "On playback complete") + ":",
-              style="Sidebar.TLabel").pack(fill=X, pady=(0, 2))
+              style="SidebarContent.TLabel").pack(fill=X, pady=(0, 2))
         self._after_combo = Combobox(
             ac,
             textvariable=self._after_mode_var,
@@ -257,9 +283,9 @@ class Sidebar(Frame):
         m = (total_seconds % 3600) // 60
         s = total_seconds % 60
 
-        frame = Frame(parent, style="Sidebar.TFrame")
+        frame = Frame(parent, style="SidebarContent.TFrame")
         frame.pack(fill=X, pady=2)
-        Label(frame, text=label_text, style="Sidebar.TLabel").pack(
+        Label(frame, text=label_text, style="SidebarContent.TLabel").pack(
             side=LEFT, padx=(0, 4)
         )
 
@@ -269,15 +295,15 @@ class Sidebar(Frame):
 
         h_spin = Spinbox(frame, from_=0, to=24, width=3, textvariable=h_var)
         h_spin.pack(side=LEFT)
-        Label(frame, text="h", style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 2))
+        Label(frame, text="h", style="SidebarContent.TLabel").pack(side=LEFT, padx=(0, 2))
 
         m_spin = Spinbox(frame, from_=0, to=59, width=3, textvariable=m_var)
         m_spin.pack(side=LEFT)
-        Label(frame, text="m", style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 2))
+        Label(frame, text="m", style="SidebarContent.TLabel").pack(side=LEFT, padx=(0, 2))
 
         s_spin = Spinbox(frame, from_=0, to=59, width=3, textvariable=s_var)
         s_spin.pack(side=LEFT)
-        Label(frame, text="s", style="Sidebar.TLabel").pack(side=LEFT)
+        Label(frame, text="s", style="SidebarContent.TLabel").pack(side=LEFT)
 
         def on_change(*_args):
             try:
@@ -325,6 +351,16 @@ class Sidebar(Frame):
             val = self._delay_var.get()
             if val >= 0:
                 self.settings.change_settings("Playback", "Repeat", "Delay", val)
+        except Exception:
+            pass
+
+    def _on_resolution_change(self):
+        try:
+            val = self._resolution_var.get()
+            if 1 <= val <= 100:
+                self.settings.change_settings(
+                    "Recordings", "Mouse_Move_Resolution", None, val
+                )
         except Exception:
             pass
 
@@ -392,3 +428,4 @@ class Sidebar(Frame):
         self._mouse_move_var.set(sd["Recordings"]["Mouse_Move"])
         self._mouse_click_var.set(sd["Recordings"]["Mouse_Click"])
         self._keyboard_var.set(sd["Recordings"]["Keyboard"])
+        self._resolution_var.set(sd["Recordings"].get("Mouse_Move_Resolution", 1))

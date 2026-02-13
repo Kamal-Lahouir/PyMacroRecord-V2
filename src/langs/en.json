@@ -193,7 +193,8 @@
       "delay_label": "Delay (s)",
       "interval_label": "Interval",
       "for_label": "For Duration",
-      "scheduled_label": "Scheduled At"
+      "scheduled_label": "Scheduled At",
+      "resolution_label": "Move resolution"
     },
     "view_menu": {
       "view_text": "View",

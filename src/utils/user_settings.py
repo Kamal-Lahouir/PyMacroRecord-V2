@@ -53,6 +53,7 @@ class UserSettings:
                 "Mouse_Click": True,
                 "Keyboard": True,
                 "Show_Events_On_Status_Bar": False,
+                "Mouse_Move_Resolution": 1,
             },
 
             "Saving": {
@@ -169,4 +170,6 @@ class UserSettings:
             userSettings["Loading"] = {}
             if "Always_import_macro_settings" not in userSettings["Loading"]:
                 userSettings["Loading"]["Always_import_macro_settings"] = False
+        if "Mouse_Move_Resolution" not in userSettings["Recordings"]:
+            userSettings["Recordings"]["Mouse_Move_Resolution"] = 1
         self.update_settings()

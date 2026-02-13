@@ -144,6 +144,12 @@ def apply_theme(root):
                     background=COLORS["bg_secondary"],
                     foreground=COLORS["text_primary"],
                     font=FONTS["default"])
+    # Content area inside collapsible sections — white background
+    style.configure("SidebarContent.TFrame", background=COLORS["bg_primary"])
+    style.configure("SidebarContent.TLabel",
+                    background=COLORS["bg_primary"],
+                    foreground=COLORS["text_primary"],
+                    font=FONTS["default"])
     style.configure("Hyperlink.TLabel",
                     foreground=COLORS["link"])
     style.configure("HotkeyDisplay.TLabel",
@@ -283,6 +289,13 @@ def apply_theme(root):
               background=[("active", COLORS["bg_tertiary"])],
               indicatorcolor=[("selected", COLORS["accent"]),
                               ("!selected", COLORS["bg_secondary"])])
+
+    style.configure("SidebarContent.TCheckbutton",
+                    background=COLORS["bg_primary"])
+    style.map("SidebarContent.TCheckbutton",
+              background=[("active", COLORS["bg_tertiary"])],
+              indicatorcolor=[("selected", COLORS["accent"]),
+                              ("!selected", COLORS["bg_primary"])])
 
     # Filter bar checkbutton (search & filter bar)
     style.configure("Filter.TCheckbutton",
