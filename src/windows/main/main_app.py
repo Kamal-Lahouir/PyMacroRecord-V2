@@ -10,27 +10,34 @@ from tkinter import (
     BOTH,
     BOTTOM,
     DISABLED,
+    HORIZONTAL,
     LEFT,
+    NORMAL,
     RIGHT,
     SUNKEN,
+    TOP,
     PhotoImage,
     W,
     X,
 )
-from tkinter.ttk import Button, Frame, Label
+from tkinter.ttk import Button, Frame, Label, PanedWindow
 
 from PIL import Image
 from pystray import Icon, MenuItem
 
 from hotkeys.hotkeys_manager import HotkeysManager
 from macro import Macro
+from macro.macro_editor import MacroEditor
 from utils.get_file import resource_path
 from utils.not_windows import NotWindows
 from utils.record_file_management import RecordFileManagement
 from utils.user_settings import UserSettings
 from utils.version import Version
 from utils.warning_pop_up_save import confirm_save
+from windows.main.event_editor import EventEditor
 from windows.main.menu_bar import MenuBar
+from windows.main.sidebar import Sidebar
+from windows.main.toolbar import Toolbar
 from windows.others.new_ver_avalaible import NewVerAvailable
 from windows.window import Window
 
@@ -47,7 +54,7 @@ class MainApp(Window):
     """Main windows of the application"""
 
     def __init__(self):
-        super().__init__("PyMacroRecord", 350, 200)
+        super().__init__("PyMacroRecord", 900, 600, resizable_window=True, min_w=700, min_h=450)
         self.attributes("-topmost", 1)
         if platform == "win32":
             self.iconbitmap(resource_path(path.join("assets", "logo.ico")))
@@ -64,44 +71,54 @@ class MainApp(Window):
 
         self.version = Version(self.settings.settings_dict, self)
 
-        self.menu = MenuBar(self)  # Menu Bar
         self.macro = Macro(self)
+        self.macro_editor = MacroEditor(self.macro)
 
         self.validate_cmd = self.register(self.validate_input)
 
-        self.hotkeyManager = HotkeysManager(self)
+        # ── Layout ────────────────────────────────────────────────
 
+        # Toolbar at top
+        self.toolbar = Toolbar(self)
+        self.toolbar.pack(side=TOP, fill=X)
+
+        # Compatibility shims so Macro/RecordFileManagement still work
+        self.playBtn = self.toolbar.play_btn
+        self.recordBtn = self.toolbar.record_btn
+        self.playImg = self.toolbar.play_img
+        self.recordImg = self.toolbar.record_img
+        self.stopImg = self.toolbar.stop_img
+
+        # Status bar at bottom
         self.status_text = Label(self, text='', relief=SUNKEN, anchor=W)
-        if self.settings.settings_dict["Recordings"]["Show_Events_On_Status_Bar"]:
-            self.status_text.pack(side=BOTTOM, fill=X)
+        self.status_text.pack(side=BOTTOM, fill=X)
 
-        # Main Buttons (Start record, stop record, start playback, stop playback)
+        # Main PanedWindow: sidebar | editor
+        self.main_paned = PanedWindow(self, orient=HORIZONTAL)
+        self.main_paned.pack(fill=BOTH, expand=True)
 
-        # Play Button
-        self.playImg = PhotoImage(file=resource_path(path.join("assets", "button", "play.png")))
+        # Sidebar
+        self.sidebar = Sidebar(self)
+        self.main_paned.add(self.sidebar, weight=0)
 
-        self.center_frame = Frame(self)
-        self.center_frame.pack(expand=True, fill=BOTH)
+        # Event editor
+        self.event_editor = EventEditor(self)
+        self.main_paned.add(self.event_editor, weight=1)
+
+        # Menu bar (after toolbar & editor exist so menu can reference them)
+        self.menu = MenuBar(self)
+
+        self.hotkeyManager = HotkeysManager(self)
 
         # Import record if opened with .pmr extension
         if len(argv) > 1:
             with open(sys.argv[1], 'r') as record:
                 loaded_content = load(record)
             self.macro.import_record(loaded_content)
-            self.playBtn = Button(self.center_frame, image=self.playImg, command=self.macro.start_playback)
             self.macro_recorded = True
             self.macro_saved = True
-        else:
-            self.playBtn = Button(self.center_frame, image=self.playImg, state=DISABLED)
-        self.playBtn.pack(side=LEFT, padx=50)
-
-        # Record Button
-        self.recordImg = PhotoImage(file=resource_path(path.join("assets", "button", "record.png")))
-        self.recordBtn = Button(self.center_frame, image=self.recordImg, command=self.macro.start_record)
-        self.recordBtn.pack(side=RIGHT, padx=50)
-
-        # Stop Button
-        self.stopImg = PhotoImage(file=resource_path(path.join("assets", "button", "stop.png")))
+            self.update_ui_state("has_recording")
+            self.event_editor.refresh()
 
         record_management = RecordFileManagement(self, self.menu)
 
@@ -135,6 +152,14 @@ class MainApp(Window):
             with open(resource_path(path.join('langs', 'en.json')), encoding='utf-8') as f:
                 en = json.load(f)
             deepcopy_dict_missing_entries(self.text_content, en["content"])
+
+    def update_ui_state(self, state):
+        """Centralized UI state management.
+        state: 'idle', 'recording', 'playing', 'has_recording'
+        """
+        self.toolbar.update_state(state)
+        self.event_editor.update_state(state)
+        self.sidebar.update_state(state)
 
     def systemTray(self):
         """Just to show little icon on system tray"""

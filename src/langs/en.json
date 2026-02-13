@@ -140,6 +140,49 @@
         }
       }
     },
+    "editor": {
+      "insert_event": "Insert Event",
+      "delete_event": "Delete",
+      "move_up": "Move Up",
+      "move_down": "Move Down",
+      "copy": "Copy",
+      "paste": "Paste",
+      "column_index": "#",
+      "column_type": "Type",
+      "column_params": "Parameters",
+      "column_delay": "Delay (s)",
+      "no_events": "No events recorded",
+      "insert_dialog_title": "Insert New Event",
+      "event_type": "Event Type",
+      "cursor_move": "Cursor Move",
+      "left_click": "Left Click",
+      "right_click": "Right Click",
+      "middle_click": "Middle Click",
+      "scroll": "Scroll",
+      "keyboard": "Keyboard",
+      "detail_panel_title": "Event Details",
+      "apply_changes": "Apply Changes"
+    },
+    "sidebar": {
+      "playback_section": "Playback",
+      "recording_section": "Recording",
+      "after_playback_section": "After Playback",
+      "speed_label": "Speed",
+      "repeat_label": "Repeat",
+      "infinite_label": "Infinite",
+      "delay_label": "Delay (s)",
+      "interval_label": "Interval",
+      "for_label": "For Duration",
+      "scheduled_label": "Scheduled At"
+    },
+    "view_menu": {
+      "view_text": "View",
+      "toggle_sidebar": "Toggle Sidebar"
+    },
+    "edit_menu": {
+      "edit_text": "Edit",
+      "select_all": "Select All"
+    },
     "help_menu": {
       "help_text": "Help",
       "tutorial_text": "Tutorial",

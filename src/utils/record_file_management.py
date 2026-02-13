@@ -67,9 +67,7 @@ class RecordFileManagement:
             defaultextension=".pmr",
         )
         if macroFile is not None:
-            self.main_app.playBtn.configure(
-                state=NORMAL, command=self.main_app.macro.start_playback
-            )
+            self.main_app.update_ui_state("has_recording")
             self.menu_bar.file_menu.entryconfig(
                 self.config_text["file_menu"]["save_text"], state=NORMAL, command=self.save_macro
             )
@@ -92,6 +90,14 @@ class RecordFileManagement:
                         self.main_app.settings.settings_dict["Playback"] = macro_settings["Playback"]
                         self.main_app.settings.settings_dict["Minimization"] = macro_settings["Minimization"]
                         self.main_app.settings.settings_dict["After_Playback"] = macro_settings["After_Playback"]
+                        # Refresh sidebar with imported settings
+                        sidebar = getattr(self.main_app, "sidebar", None)
+                        if sidebar:
+                            sidebar.refresh_from_settings()
+            # Refresh the event editor
+            event_editor = getattr(self.main_app, "event_editor", None)
+            if event_editor:
+                event_editor.refresh()
         self.main_app.prevent_record = False
 
 
@@ -104,11 +110,15 @@ class RecordFileManagement:
                 self.save_macro()
             elif wantToSave is None:
                 return
-        self.main_app.playBtn.configure(state=NORMAL)
+        self.main_app.update_ui_state("idle")
         self.menu_bar.file_menu.entryconfig(self.config_text["file_menu"]["save_text"], state=DISABLED)
         self.menu_bar.file_menu.entryconfig(self.config_text["file_menu"]["save_as_text"], state=DISABLED)
         self.menu_bar.file_menu.entryconfig(self.config_text["file_menu"]["new_text"], state=DISABLED)
-        self.main_app.playBtn.configure(state=DISABLED)
         self.main_app.current_file = None
         self.main_app.macro_saved = False
         self.main_app.macro_recorded = False
+        self.main_app.macro.macro_events = {}
+        # Clear the event editor
+        event_editor = getattr(self.main_app, "event_editor", None)
+        if event_editor:
+            event_editor.refresh()

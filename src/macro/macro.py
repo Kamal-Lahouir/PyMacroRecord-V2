@@ -28,8 +28,8 @@ class Macro:
         self.macro_events = {}
         self.main_app = main_app
         self.user_settings = self.main_app.settings
-        self.main_menu = self.main_app.menu
-        self.macro_file_management = RecordFileManagement(self.main_app, self.main_menu)
+        self._main_menu = None
+        self._macro_file_management = None
 
         self.mouseBeingListened = None
         self.keyboardBeingListened = None
@@ -42,6 +42,18 @@ class Macro:
                 on_press=self.__on_press, on_release=self.__on_release
             )
         self.keyboard_listener.start()
+
+    @property
+    def main_menu(self):
+        if self._main_menu is None:
+            self._main_menu = self.main_app.menu
+        return self._main_menu
+
+    @property
+    def macro_file_management(self):
+        if self._macro_file_management is None:
+            self._macro_file_management = RecordFileManagement(self.main_app, self.main_menu)
+        return self._macro_file_management
 
     def start_record(self, by_hotkey=False):
         if self.main_app.prevent_record:
@@ -84,15 +96,11 @@ class Macro:
             self.mouseBeingListened = True
         if userSettings["Recordings"]["Keyboard"]:
             self.keyboardBeingListened = True
+        self.main_app.update_ui_state("recording")
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["load_text"], state=DISABLED)
-        self.main_app.recordBtn.configure(
-            image=self.main_app.stopImg, command=self.stop_record
-        )
-        self.main_app.playBtn.configure(state=DISABLED)
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["save_text"], state=DISABLED)
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["save_as_text"], state=DISABLED)
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["new_text"], state=DISABLED)
-        self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["load_text"], state=DISABLED)
         if userSettings["Minimization"]["When_Recording"]:
             self.main_app.withdraw()
             Thread(target=lambda: show_notification_minim(self.main_app)).start()
@@ -108,10 +116,12 @@ class Macro:
             self.mouseBeingListened = False
         if self.keyboardBeingListened:
             self.keyboardBeingListened = False
-        self.main_app.recordBtn.configure(
-            image=self.main_app.recordImg, command=self.start_record
-        )
-        self.main_app.playBtn.configure(state=NORMAL, command=self.start_playback)
+
+        self.main_app.macro_recorded = True
+        self.main_app.macro_saved = False
+
+        # Update UI via centralized state + legacy menu entryconfig
+        self.main_app.update_ui_state("has_recording")
         self.main_menu.file_menu.entryconfig(
             self.main_app.text_content["file_menu"]["save_text"], state=NORMAL, command=self.macro_file_management.save_macro
         )
@@ -123,8 +133,10 @@ class Macro:
         )
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["load_text"], state=NORMAL)
 
-        self.main_app.macro_recorded = True
-        self.main_app.macro_saved = False
+        # Refresh event editor
+        event_editor = getattr(self.main_app, "event_editor", None)
+        if event_editor:
+            event_editor.refresh()
 
         if userSettings["Minimization"]["When_Recording"]:
             self.main_app.deiconify()
@@ -134,14 +146,11 @@ class Macro:
     def start_playback(self):
         userSettings = self.user_settings.settings_dict
         self.playback = True
-        self.main_app.playBtn.configure(
-            image=self.main_app.stopImg, command=lambda: self.stop_playback(True)
-        )
+        self.main_app.update_ui_state("playing")
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["save_text"], state=DISABLED)
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["save_as_text"], state=DISABLED)
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["new_text"], state=DISABLED)
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["load_text"], state=DISABLED)
-        self.main_app.recordBtn.configure(state=DISABLED)
         if userSettings["Minimization"]["When_Playing"]:
             self.main_app.withdraw()
             Thread(target=lambda: show_notification_minim(self.main_app)).start()
@@ -308,10 +317,7 @@ class Macro:
         else:
             print("playback stopped manually")
         userSettings = self.user_settings.settings_dict
-        self.main_app.recordBtn.configure(state=NORMAL)
-        self.main_app.playBtn.configure(
-            image=self.main_app.playImg, command=self.start_playback
-        )
+        self.main_app.update_ui_state("has_recording")
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["save_text"], state=NORMAL)
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["save_as_text"], state=NORMAL)
         self.main_menu.file_menu.entryconfig(self.main_app.text_content["file_menu"]["new_text"], state=NORMAL)
