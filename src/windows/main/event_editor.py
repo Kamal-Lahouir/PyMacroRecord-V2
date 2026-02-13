@@ -59,6 +59,9 @@ class EventEditor(Frame):
         self._filter_bar = Frame(self, style="FilterBar.TFrame")
         self._filter_bar.pack(side=TOP, fill=X)
 
+        # Guard: trace callbacks fire during construction, skip until ready
+        self._filter_ready = False
+
         # Search entry
         self._search_var = StringVar()
         self._search_var.trace_add("write", self._on_filter_change)
@@ -112,6 +115,8 @@ class EventEditor(Frame):
             style="FilterBar.TLabel",
         )
         self._filter_status.pack(side=RIGHT, padx=(0, 6), pady=4)
+
+        self._filter_ready = True  # Filter bar fully constructed
 
         # ── Treeview ──────────────────────────────────────────────────
         tree_frame = Frame(self)
@@ -264,6 +269,8 @@ class EventEditor(Frame):
 
     def _on_filter_change(self, *_args):
         """Called when search text or filter checkboxes change."""
+        if not self._filter_ready:
+            return
         self._apply_filter()
 
     def _apply_filter(self):
