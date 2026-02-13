@@ -2,6 +2,7 @@ from tkinter import BOTTOM, LEFT, messagebox
 from tkinter.ttk import Button, Frame, Label, Spinbox
 
 from windows.popup import Popup
+from windows.theme import FONTS
 
 
 class TimeGui(Popup):
@@ -27,7 +28,7 @@ class TimeGui(Popup):
         if self.type == "Scheduled":
             self.buttonTimeFormat = Button(hourFrame, text=self.time_format, command=lambda: self.changeTimeFormat(main_app))
             self.buttonTimeFormat.pack(pady=5)
-        hourText = Label(hourFrame, text=main_app.text_content["options_menu"]["playback_menu"]["for_interval_settings"]["hours_text"], font=("Segoe UI", 9))
+        hourText = Label(hourFrame, text=main_app.text_content["options_menu"]["playback_menu"]["for_interval_settings"]["hours_text"], font=FONTS["small"])
         hourText.pack(pady=10)
         hourInput = Spinbox(
             hourFrame,
@@ -51,7 +52,7 @@ class TimeGui(Popup):
 
         hourFrame.pack()
 
-        minText = Label(self, text=main_app.text_content["options_menu"]["playback_menu"]["for_interval_settings"]["minutes_text"], font=("Segoe UI", 9))
+        minText = Label(self, text=main_app.text_content["options_menu"]["playback_menu"]["for_interval_settings"]["minutes_text"], font=FONTS["small"])
         minText.pack(pady=10)
         minInput = Spinbox(
             self,
@@ -66,7 +67,7 @@ class TimeGui(Popup):
         )
         minInput.pack()
 
-        secText = Label(self, text=main_app.text_content["options_menu"]["playback_menu"]["for_interval_settings"]["seconds_text"], font=("Segoe UI", 9))
+        secText = Label(self, text=main_app.text_content["options_menu"]["playback_menu"]["for_interval_settings"]["seconds_text"], font=FONTS["small"])
         secText.pack(pady=10)
 
         secInput = Spinbox(
@@ -87,6 +88,7 @@ class TimeGui(Popup):
             command=lambda: self.setNewFixedHour(
                 hourInput.get(), minInput.get(), secInput.get(), main_app
             ),
+            style="Primary.TButton",
         ).pack(side=LEFT, padx=10)
         Button(buttonArea, text=main_app.text_content["global"]["cancel_button"], command=self.destroy).pack(side=LEFT, padx=10)
         buttonArea.pack(side=BOTTOM, pady=10)

@@ -9,7 +9,7 @@ class Toolbar(Frame):
     """Top toolbar with transport controls and editor action buttons."""
 
     def __init__(self, main_app):
-        super().__init__(main_app)
+        super().__init__(main_app, style="Toolbar.TFrame")
         self.main_app = main_app
         text = main_app.text_content
 
@@ -26,16 +26,20 @@ class Toolbar(Frame):
 
         # Transport controls
         self.record_btn = Button(
-            self, image=self.record_img, command=main_app.macro.start_record
+            self, image=self.record_img, command=main_app.macro.start_record,
+            style="Toolbar.TButton",
         )
-        self.record_btn.pack(side=LEFT, padx=(8, 2), pady=4)
+        self.record_btn.pack(side=LEFT, padx=(10, 3), pady=6)
 
-        self.play_btn = Button(self, image=self.play_img, state=DISABLED)
-        self.play_btn.pack(side=LEFT, padx=2, pady=4)
+        self.play_btn = Button(
+            self, image=self.play_img, state=DISABLED,
+            style="Toolbar.TButton",
+        )
+        self.play_btn.pack(side=LEFT, padx=3, pady=6)
 
         # Separator between transport and editor actions
         sep = Separator(self, orient=VERTICAL)
-        sep.pack(side=LEFT, fill="y", padx=8, pady=4)
+        sep.pack(side=LEFT, fill="y", padx=10, pady=6)
 
         # Editor action buttons
         editor_text = text.get("editor", {})
@@ -45,65 +49,72 @@ class Toolbar(Frame):
             text=editor_text.get("insert_event", "Insert"),
             command=self._on_insert,
             state=DISABLED,
+            style="ToolbarText.TButton",
         )
-        self.insert_btn.pack(side=LEFT, padx=2, pady=4)
+        self.insert_btn.pack(side=LEFT, padx=3, pady=6)
 
         self.delete_btn = Button(
             self,
             text=editor_text.get("delete_event", "Delete"),
             command=self._on_delete,
             state=DISABLED,
+            style="ToolbarText.TButton",
         )
-        self.delete_btn.pack(side=LEFT, padx=2, pady=4)
+        self.delete_btn.pack(side=LEFT, padx=3, pady=6)
 
         sep2 = Separator(self, orient=VERTICAL)
-        sep2.pack(side=LEFT, fill="y", padx=4, pady=4)
+        sep2.pack(side=LEFT, fill="y", padx=6, pady=6)
 
         self.move_up_btn = Button(
             self,
             text=editor_text.get("move_up", "Move Up"),
             command=self._on_move_up,
             state=DISABLED,
+            style="ToolbarText.TButton",
         )
-        self.move_up_btn.pack(side=LEFT, padx=2, pady=4)
+        self.move_up_btn.pack(side=LEFT, padx=3, pady=6)
 
         self.move_down_btn = Button(
             self,
             text=editor_text.get("move_down", "Move Down"),
             command=self._on_move_down,
             state=DISABLED,
+            style="ToolbarText.TButton",
         )
-        self.move_down_btn.pack(side=LEFT, padx=2, pady=4)
+        self.move_down_btn.pack(side=LEFT, padx=3, pady=6)
 
         sep3 = Separator(self, orient=VERTICAL)
-        sep3.pack(side=LEFT, fill="y", padx=4, pady=4)
+        sep3.pack(side=LEFT, fill="y", padx=6, pady=6)
 
         self.copy_btn = Button(
             self,
             text=editor_text.get("copy", "Copy"),
             command=self._on_copy,
             state=DISABLED,
+            style="ToolbarText.TButton",
         )
-        self.copy_btn.pack(side=LEFT, padx=2, pady=4)
+        self.copy_btn.pack(side=LEFT, padx=3, pady=6)
 
         self.paste_btn = Button(
             self,
             text=editor_text.get("paste", "Paste"),
             command=self._on_paste,
             state=DISABLED,
+            style="ToolbarText.TButton",
         )
-        self.paste_btn.pack(side=LEFT, padx=2, pady=4)
+        self.paste_btn.pack(side=LEFT, padx=3, pady=6)
 
         sep4 = Separator(self, orient=VERTICAL)
-        sep4.pack(side=LEFT, fill="y", padx=4, pady=4)
+        sep4.pack(side=LEFT, fill="y", padx=6, pady=6)
 
         self.simplify_btn = Button(
             self,
             text=editor_text.get("simplify_path", "Simplify Path..."),
             command=self._on_simplify,
             state=DISABLED,
+            style="ToolbarText.TButton",
         )
-        self.simplify_btn.pack(side=LEFT, padx=2, pady=4)
+        self.simplify_btn.pack(side=LEFT, padx=3, pady=6)
 
     def _on_insert(self):
         editor = getattr(self.main_app, "event_editor", None)

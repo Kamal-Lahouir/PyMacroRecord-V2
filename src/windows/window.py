@@ -1,9 +1,13 @@
 from tkinter import Tk
 
+from windows.theme import COLORS, apply_theme
+
 
 class Window(Tk):
     def __init__(self, name, w, h, resizable_window=False, min_w=0, min_h=0):
         super().__init__()
+        apply_theme(self)
+        self.configure(bg=COLORS["bg_primary"])
         self.title(name)
         ws = self.winfo_screenwidth()
         hs = self.winfo_screenheight()

@@ -1,8 +1,9 @@
 from sys import platform
-from tkinter import BOTH, BOTTOM, END, LEFT, Menu, RIGHT, VERTICAL, X, Y
-from tkinter.ttk import Entry, Frame, Scrollbar, Style, Treeview
+from tkinter import BOTH, BOTTOM, END, LEFT, Menu, RIGHT, TOP, VERTICAL, X, Y, BooleanVar, StringVar
+from tkinter.ttk import Button, Checkbutton, Entry, Frame, Label, Scrollbar, Treeview
 
 from windows.main.event_detail_panel import EventDetailPanel
+from windows.theme import COLORS, FONTS
 
 
 EVENT_TYPE_LABELS = {
@@ -22,6 +23,15 @@ EVENT_TYPE_TAGS = {
     "keyboard": ("keyboardEvent",),
 }
 
+# Filter key -> which tags it matches
+_FILTER_TAG_MAP = {
+    "moves": ("mouse_move",),
+    "clicks": ("mouse_click",),
+    "scroll": ("scroll",),
+    "keyboard": ("keyboard",),
+    "paths": ("mouse_path_group",),
+}
+
 
 class EventEditor(Frame):
     """Treeview-based macro event editor with grouped mouse path display."""
@@ -38,9 +48,72 @@ class EventEditor(Frame):
         self._index_to_iid = {}      # event_index -> treeview iid
         self._iid_to_index = {}      # treeview iid -> event_index
 
+        # All top-level iids in display order (for filter detach/reattach)
+        self._all_top_iids = []
+        # Currently detached (hidden) iids
+        self._detached_iids = set()
+
         text = main_app.text_content.get("editor", {})
 
-        # Treeview frame
+        # ── Filter bar ────────────────────────────────────────────────
+        self._filter_bar = Frame(self, style="FilterBar.TFrame")
+        self._filter_bar.pack(side=TOP, fill=X)
+
+        # Search entry
+        self._search_var = StringVar()
+        self._search_var.trace_add("write", self._on_filter_change)
+        self._search_entry = Entry(
+            self._filter_bar, textvariable=self._search_var, width=20,
+        )
+        self._search_entry.pack(side=LEFT, padx=(6, 4), pady=4)
+        # Placeholder text
+        self._search_placeholder = text.get(
+            "search_placeholder", "Search events... (Ctrl+F)"
+        )
+        self._search_entry.insert(0, self._search_placeholder)
+        self._search_entry.configure(foreground=COLORS["text_disabled"])
+        self._search_has_focus = False
+        self._search_entry.bind("<FocusIn>", self._on_search_focus_in)
+        self._search_entry.bind("<FocusOut>", self._on_search_focus_out)
+
+        # Type filter checkboxes — all checked by default
+        self._filter_vars = {}
+        for key, label_key, default_label in (
+            ("moves", "filter_moves", "Moves"),
+            ("clicks", "filter_clicks", "Clicks"),
+            ("scroll", "filter_scroll", "Scroll"),
+            ("keyboard", "filter_keyboard", "Keyboard"),
+            ("paths", "filter_paths", "Paths"),
+        ):
+            var = BooleanVar(value=True)
+            var.trace_add("write", self._on_filter_change)
+            self._filter_vars[key] = var
+            Checkbutton(
+                self._filter_bar,
+                text=text.get(label_key, default_label),
+                variable=var,
+                style="Filter.TCheckbutton",
+            ).pack(side=LEFT, padx=2, pady=4)
+
+        # Clear button
+        self._clear_btn = Button(
+            self._filter_bar,
+            text=text.get("clear_filter", "Clear"),
+            command=self._clear_filters,
+            style="ToolbarText.TButton",
+        )
+        self._clear_btn.pack(side=LEFT, padx=(4, 2), pady=4)
+
+        # Filter status label (right-aligned)
+        self._filter_status_var = StringVar()
+        self._filter_status = Label(
+            self._filter_bar,
+            textvariable=self._filter_status_var,
+            style="FilterBar.TLabel",
+        )
+        self._filter_status.pack(side=RIGHT, padx=(0, 6), pady=4)
+
+        # ── Treeview ──────────────────────────────────────────────────
         tree_frame = Frame(self)
         tree_frame.pack(fill=BOTH, expand=True)
 
@@ -69,18 +142,27 @@ class EventEditor(Frame):
         scrollbar.pack(side=RIGHT, fill=Y)
 
         # Row coloring by event type
-        self.tree.tag_configure("mouse_move", background="#e8f0fe")
-        self.tree.tag_configure("mouse_click", background="#fce8e6")
-        self.tree.tag_configure("scroll", background="#fef7e0")
-        self.tree.tag_configure("keyboard", background="#e6f4ea")
-        self.tree.tag_configure("mouse_path_group", background="#c8d6e8")
+        self.tree.tag_configure("mouse_move", background=COLORS["tag_mouse_move"])
+        self.tree.tag_configure("mouse_click", background=COLORS["tag_mouse_click"])
+        self.tree.tag_configure("scroll", background=COLORS["tag_scroll"])
+        self.tree.tag_configure("keyboard", background=COLORS["tag_keyboard"])
+        self.tree.tag_configure("mouse_path_group", background=COLORS["tag_mouse_path_group"])
 
         # Detail panel at bottom
         self.detail_panel = EventDetailPanel(self, main_app)
         self.detail_panel.pack(side=BOTTOM, fill=X)
 
-        # Context menu
-        self._context_menu = Menu(self.tree, tearoff=0)
+        # Context menu (tk.Menu — styled via constructor args)
+        self._context_menu = Menu(
+            self.tree, tearoff=0,
+            bg=COLORS["bg_primary"],
+            fg=COLORS["text_primary"],
+            activebackground=COLORS["accent"],
+            activeforeground=COLORS["text_inverse"],
+            font=FONTS["default"],
+            relief="flat",
+            borderwidth=1,
+        )
         editor_text = text
         self._context_menu.add_command(
             label=editor_text.get("insert_event", "Insert Event"),
@@ -122,6 +204,10 @@ class EventEditor(Frame):
         self.tree.bind("<Control-c>", lambda e: self.copy_selected())
         self.tree.bind("<Control-v>", lambda e: self.paste_at_selection())
         self.tree.bind("<Control-i>", lambda e: self.insert_event_at_selection())
+        self.tree.bind("<Control-f>", lambda e: self._focus_search())
+
+        # Also bind Ctrl+F at the frame level
+        self.bind("<Control-f>", lambda e: self._focus_search())
 
         # Right-click context menu
         if platform == "darwin":
@@ -138,6 +224,119 @@ class EventEditor(Frame):
         self.tree.bind("<<TreeviewOpen>>", self._on_group_expand)
         self.tree.bind("<<TreeviewClose>>", self._on_group_collapse)
 
+    # ── Search bar helpers ────────────────────────────────────────────
+
+    def _focus_search(self):
+        self._search_entry.focus_set()
+
+    def _on_search_focus_in(self, event=None):
+        if not self._search_has_focus:
+            self._search_has_focus = True
+            if self._search_var.get() == self._search_placeholder:
+                self._search_entry.delete(0, END)
+                self._search_entry.configure(foreground=COLORS["text_primary"])
+
+    def _on_search_focus_out(self, event=None):
+        self._search_has_focus = False
+        if not self._search_var.get():
+            self._search_entry.configure(foreground=COLORS["text_disabled"])
+            self._search_entry.insert(0, self._search_placeholder)
+
+    def _get_search_text(self):
+        """Return search text, or empty string if placeholder is showing."""
+        val = self._search_var.get()
+        if val == self._search_placeholder:
+            return ""
+        return val.strip().lower()
+
+    def _clear_filters(self):
+        """Reset search text and check all filter boxes."""
+        # Reset search
+        self._search_has_focus = False
+        self._search_var.set("")
+        self._search_entry.configure(foreground=COLORS["text_disabled"])
+        self._search_entry.insert(0, self._search_placeholder)
+        # Check all filters
+        for var in self._filter_vars.values():
+            var.set(True)
+
+    # ── Filter logic ──────────────────────────────────────────────────
+
+    def _on_filter_change(self, *_args):
+        """Called when search text or filter checkboxes change."""
+        self._apply_filter()
+
+    def _apply_filter(self):
+        """Show/hide top-level treeview items based on current filters."""
+        search = self._get_search_text()
+        # Build set of allowed tags from checked filters
+        allowed_tags = set()
+        for key, var in self._filter_vars.items():
+            if var.get():
+                allowed_tags.update(_FILTER_TAG_MAP[key])
+
+        # Reattach all previously detached items first
+        # We need to reattach in original order
+        if self._detached_iids:
+            for iid in self._all_top_iids:
+                if iid in self._detached_iids:
+                    # Find the correct position: after the previous visible sibling
+                    idx = self._all_top_iids.index(iid)
+                    if idx == 0:
+                        self.tree.reattach(iid, "", 0)
+                    else:
+                        # Find the previous iid that is currently attached
+                        prev = ""
+                        for j in range(idx - 1, -1, -1):
+                            if self._all_top_iids[j] not in self._detached_iids:
+                                prev = self._all_top_iids[j]
+                                break
+                        if prev:
+                            self.tree.move(iid, "", self.tree.index(prev) + 1)
+                        else:
+                            self.tree.reattach(iid, "", 0)
+            self._detached_iids.clear()
+
+        total = len(self._all_top_iids)
+        shown = total
+
+        # Now detach items that don't match
+        for iid in self._all_top_iids:
+            if not self._item_matches_filter(iid, search, allowed_tags):
+                self.tree.detach(iid)
+                self._detached_iids.add(iid)
+                shown -= 1
+
+        # Update status label
+        if shown < total:
+            tmpl = self.main_app.text_content.get("editor", {}).get(
+                "showing_filtered", "Showing {shown} of {total} events"
+            )
+            self._filter_status_var.set(
+                tmpl.format(shown=shown, total=total)
+            )
+        else:
+            self._filter_status_var.set("")
+
+    def _item_matches_filter(self, iid, search, allowed_tags):
+        """Check if a top-level item passes current filters."""
+        tags = set(self.tree.item(iid, "tags"))
+
+        # Type filter: check if the item's tag is in allowed set
+        if tags:
+            if not tags.intersection(allowed_tags):
+                return False
+        # Items with no tag (shouldn't normally happen) always pass type filter
+
+        # Text search
+        if search:
+            values = self.tree.item(iid, "values")
+            text = " ".join(str(v).lower() for v in values)
+            if search not in text:
+                return False
+
+        return True
+
     # ── Refresh / Display ────────────────────────────────────────────
 
     def refresh(self):
@@ -148,6 +347,8 @@ class EventEditor(Frame):
         self._group_items.clear()
         self._index_to_iid.clear()
         self._iid_to_index.clear()
+        self._all_top_iids.clear()
+        self._detached_iids.clear()
 
         events = self.macro.macro_events.get("events", [])
         display_items = self.main_app.macro_editor.get_cursor_move_groups()
@@ -166,14 +367,15 @@ class EventEditor(Frame):
                 )
                 self._index_to_iid[idx] = iid
                 self._iid_to_index[iid] = idx
+                self._all_top_iids.append(iid)
 
             elif item["kind"] == "group":
                 group_iid = f"grp_{group_counter}"
                 group_counter += 1
 
-                # Format group summary row
+                # Format group summary row (index = start point, 1-based)
                 summary = (
-                    "",  # no index number for group header
+                    item["start"] + 1,
                     "Mouse Path",
                     f"({item['start_x']},{item['start_y']}) \u2192 "
                     f"({item['end_x']},{item['end_y']}) "
@@ -189,10 +391,14 @@ class EventEditor(Frame):
                     "end": item["end"],
                     "count": item["count"],
                 }
+                self._all_top_iids.append(group_iid)
 
                 # Insert a dummy child so the expand arrow appears
                 dummy_iid = f"dummy_{group_iid}"
                 self.tree.insert(group_iid, END, iid=dummy_iid, values=("", "", "Loading...", ""))
+
+        # Apply current filter to the newly loaded data
+        self._apply_filter()
 
     def _on_group_expand(self, event=None):
         """Lazy-load children when a group is expanded."""

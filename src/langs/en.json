@@ -173,7 +173,15 @@
       "group_end": "End",
       "group_moves": "Moves",
       "group_distance": "Distance",
-      "group_duration": "Duration"
+      "group_duration": "Duration",
+      "search_placeholder": "Search events... (Ctrl+F)",
+      "filter_moves": "Moves",
+      "filter_clicks": "Clicks",
+      "filter_scroll": "Scroll",
+      "filter_keyboard": "Keyboard",
+      "filter_paths": "Paths",
+      "clear_filter": "Clear",
+      "showing_filtered": "Showing {shown} of {total} events"
     },
     "sidebar": {
       "playback_section": "Playback",

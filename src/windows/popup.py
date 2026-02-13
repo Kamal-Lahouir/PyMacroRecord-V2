@@ -1,10 +1,13 @@
 from sys import platform
 from tkinter import Toplevel
 
+from windows.theme import COLORS
+
 
 class Popup(Toplevel):
     def __init__(self, name, w, h, parent):
         super().__init__(parent)
+        self.configure(bg=COLORS["bg_primary"])
         self.title(name)
         ws = self.winfo_screenwidth()
         hs = self.winfo_screenheight()

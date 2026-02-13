@@ -14,7 +14,6 @@ from tkinter import (
     LEFT,
     NORMAL,
     RIGHT,
-    SUNKEN,
     TOP,
     PhotoImage,
     W,
@@ -54,7 +53,7 @@ class MainApp(Window):
     """Main windows of the application"""
 
     def __init__(self):
-        super().__init__("PyMacroRecord", 900, 600, resizable_window=True, min_w=700, min_h=450)
+        super().__init__("PyMacroRecord", 1000, 620, resizable_window=True, min_w=860, min_h=450)
         self.attributes("-topmost", 1)
         if platform == "win32":
             self.iconbitmap(resource_path(path.join("assets", "logo.ico")))
@@ -90,7 +89,7 @@ class MainApp(Window):
         self.stopImg = self.toolbar.stop_img
 
         # Status bar at bottom
-        self.status_text = Label(self, text='', relief=SUNKEN, anchor=W)
+        self.status_text = Label(self, text='', style="StatusBar.TLabel", anchor=W)
         self.status_text.pack(side=BOTTOM, fill=X)
 
         # Main PanedWindow: sidebar | editor

@@ -64,7 +64,8 @@ class InsertEventDialog(Popup):
         confirm_text = main_app.text_content.get("global", {}).get("confirm_button", "Confirm")
         cancel_text = main_app.text_content.get("global", {}).get("cancel_button", "Cancel")
 
-        Button(btn_frame, text=confirm_text, command=self._confirm).pack(side=LEFT, padx=4)
+        Button(btn_frame, text=confirm_text, command=self._confirm,
+               style="Primary.TButton").pack(side=LEFT, padx=4)
         Button(btn_frame, text=cancel_text, command=self.destroy).pack(side=LEFT, padx=4)
 
         # Show initial fields

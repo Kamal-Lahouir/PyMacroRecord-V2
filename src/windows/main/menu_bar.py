@@ -8,6 +8,7 @@ from windows.options.settings import Hotkeys, SelectLanguage
 from windows.others.donors import Donors
 from windows.others.timestamp import Timestamp
 from windows.others.translators import Translators
+from windows.theme import get_menu_style
 
 
 class MenuBar(Menu):
@@ -18,12 +19,14 @@ class MenuBar(Menu):
         userSettings = settings.settings_dict
         self.text_config = parent.text_content
 
+        _ms = get_menu_style()
+
         # Menu Setup
-        my_menu = Menu(parent)
+        my_menu = Menu(parent, **_ms)
         parent.config(menu=my_menu)
 
         # ── File Menu ─────────────────────────────────────────────
-        self.file_menu = Menu(my_menu, tearoff=0)
+        self.file_menu = Menu(my_menu, tearoff=0, **_ms)
         my_menu.add_cascade(label=self.text_config["file_menu"]["file_text"], menu=self.file_menu)
         record_file_management = RecordFileManagement(parent, self)
         if len(argv) > 1:
@@ -42,7 +45,7 @@ class MenuBar(Menu):
         # ── Edit Menu ─────────────────────────────────────────────
         edit_text = self.text_config.get("edit_menu", {})
         editor_text = self.text_config.get("editor", {})
-        self.edit_menu = Menu(my_menu, tearoff=0)
+        self.edit_menu = Menu(my_menu, tearoff=0, **_ms)
         my_menu.add_cascade(label=edit_text.get("edit_text", "Edit"), menu=self.edit_menu)
 
         self.edit_menu.add_command(
@@ -80,7 +83,7 @@ class MenuBar(Menu):
 
         # ── View Menu ─────────────────────────────────────────────
         view_text = self.text_config.get("view_menu", {})
-        self.view_menu = Menu(my_menu, tearoff=0)
+        self.view_menu = Menu(my_menu, tearoff=0, **_ms)
         my_menu.add_cascade(label=view_text.get("view_text", "View"), menu=self.view_menu)
         self.view_menu.add_command(
             label=view_text.get("toggle_sidebar", "Toggle Sidebar"),
@@ -88,14 +91,14 @@ class MenuBar(Menu):
         )
 
         # ── Options Menu (settings not in sidebar) ────────────────
-        self.options_menu = Menu(my_menu, tearoff=0)
+        self.options_menu = Menu(my_menu, tearoff=0, **_ms)
         my_menu.add_cascade(label=self.text_config["options_menu"]["options_text"], menu=self.options_menu)
 
         # Recordings Sub
         self.mouseMove = BooleanVar(value=userSettings["Recordings"]["Mouse_Move"])
         self.mouseClick = BooleanVar(value=userSettings["Recordings"]["Mouse_Click"])
         self.keyboardInput = BooleanVar(value=userSettings["Recordings"]["Keyboard"])
-        recordings_sub = Menu(self.options_menu, tearoff=0)
+        recordings_sub = Menu(self.options_menu, tearoff=0, **_ms)
         self.options_menu.add_cascade(label=self.text_config["options_menu"]["recordings_menu"]["recordings_text"], menu=recordings_sub)
         recordings_sub.add_checkbutton(label=self.text_config["options_menu"]["recordings_menu"]["mouse_movement_text"], variable=self.mouseMove,
                                        command=lambda: self._toggle_recording("Mouse_Move"))
@@ -112,7 +115,7 @@ class MenuBar(Menu):
         )
 
         # Settings Sub
-        self.options_sub = Menu(self.options_menu, tearoff=0)
+        self.options_sub = Menu(self.options_menu, tearoff=0, **_ms)
         self.compactJson = BooleanVar(value=userSettings["Saving"]["Compact_json"])
         self.always_import_macro_settings = BooleanVar(value=userSettings["Loading"]["Always_import_macro_settings"])
         self.options_sub.add_checkbutton(label=self.text_config["options_menu"]["json_compact"], command=lambda: settings.change_settings("Saving", "Compact_json"), variable=self.compactJson)
@@ -121,7 +124,7 @@ class MenuBar(Menu):
         self.options_sub.add_command(label=self.text_config["options_menu"]["settings_menu"]["hotkeys_text"], command=lambda: Hotkeys(self, parent))
         self.options_sub.add_command(label=self.text_config["options_menu"]["settings_menu"]["lang_text"], command=lambda: SelectLanguage(self, parent))
 
-        minimization_sub = Menu(self.options_sub, tearoff=0)
+        minimization_sub = Menu(self.options_sub, tearoff=0, **_ms)
         self.options_sub.add_cascade(label=self.text_config["options_menu"]["settings_menu"]["minimization_text"], menu=minimization_sub)
         self.minimization_playing = BooleanVar(value=userSettings["Minimization"]["When_Playing"])
         self.minimization_record = BooleanVar(value=userSettings["Minimization"]["When_Recording"])
@@ -131,7 +134,7 @@ class MenuBar(Menu):
                                          command=lambda: settings.change_settings("Minimization", "When_Recording"))
 
         # Others Sub
-        self.others_sub = Menu(self.options_menu, tearoff=0)
+        self.others_sub = Menu(self.options_menu, tearoff=0, **_ms)
         self.options_menu.add_cascade(label=self.text_config["options_menu"]["others_menu"]["others_text"], menu=self.others_sub)
         self.Check_update = BooleanVar(value=userSettings["Others"]["Check_update"])
         self.others_sub.add_checkbutton(label=self.text_config["options_menu"]["others_menu"]["check_update_text"], variable=self.Check_update, command=lambda: settings.change_settings("Others", "Check_update"))
@@ -139,7 +142,7 @@ class MenuBar(Menu):
         self.others_sub.add_command(label=self.text_config["options_menu"]["others_menu"]["fixed_timestamp_text"], command=lambda: Timestamp(self, parent))
 
         # ── Help Section ──────────────────────────────────────────
-        self.help_section = Menu(my_menu, tearoff=0)
+        self.help_section = Menu(my_menu, tearoff=0, **_ms)
         my_menu.add_cascade(label=self.text_config["help_menu"]["help_text"], menu=self.help_section)
         self.help_section.add_command(label=self.text_config["help_menu"]["tutorial_text"], command=lambda: OpenUrl("https://github.com/LOUDO56/PyMacroRecord/blob/main/TUTORIAL.md"))
         self.help_section.add_command(label=self.text_config["help_menu"]["website_text"],
@@ -147,7 +150,7 @@ class MenuBar(Menu):
         self.help_section.add_command(label=self.text_config["help_menu"]["about_text"], command=lambda: About(self, parent, parent.version.version, parent.version.update))
 
         # ── Other Section ─────────────────────────────────────────
-        self.other_section = Menu(my_menu, tearoff=0)
+        self.other_section = Menu(my_menu, tearoff=0, **_ms)
         my_menu.add_cascade(label=self.text_config["others_menu"]["others_text"], menu=self.other_section)
         self.other_section.add_command(label=self.text_config["others_menu"]["donors_text"], command=lambda: Donors(self, parent))
         self.other_section.add_command(label=self.text_config["others_menu"]["translators_text"], command=lambda: Translators(self, parent))

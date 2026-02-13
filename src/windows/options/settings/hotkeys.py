@@ -1,5 +1,6 @@
 import copy
-from tkinter import BOTTOM, LEFT, Button, Frame, Label
+from tkinter import BOTTOM, LEFT
+from tkinter.ttk import Button, Frame, Label
 
 from utils.keys import vk_nb
 from windows.popup import Popup
@@ -35,24 +36,24 @@ class Hotkeys(Popup):
 
         Button(hotkeyLine, text=main_app.text_content["options_menu"]["settings_menu"]["hotkeys_settings"]["start_record_text"],
                command=lambda: hotkeyManager.enable_hot_key_detection("Record_Start", self.startKey, 0)).grid(row=0, column=0, padx=10)
-        self.startKey = Label(hotkeyLine, text=hotkeyVisible[0], font=('Segoe UI', 12))
+        self.startKey = Label(hotkeyLine, text=hotkeyVisible[0], style="HotkeyDisplay.TLabel")
         self.startKey.grid(row=0, column=1, pady=5)
 
         Button(hotkeyLine, text=main_app.text_content["options_menu"]["settings_menu"]["hotkeys_settings"]["stop_record_text"],
                command=lambda: hotkeyManager.enable_hot_key_detection("Record_Stop", self.stopKey, 1)).grid(row=1, column=0, padx=10)
-        self.stopKey = Label(hotkeyLine, text=hotkeyVisible[1], font=('Segoe UI', 12))
+        self.stopKey = Label(hotkeyLine, text=hotkeyVisible[1], style="HotkeyDisplay.TLabel")
         self.stopKey.grid(row=1, column=1, pady=5)
 
         Button(hotkeyLine, text=main_app.text_content["options_menu"]["settings_menu"]["hotkeys_settings"]["start_playback_text"],
                command=lambda: hotkeyManager.enable_hot_key_detection("Playback_Start", self.playbackStartKey, 2)).grid(row=2, column=0,
                                                                                                                         padx=10)
-        self.playbackStartKey = Label(hotkeyLine, text=hotkeyVisible[2], font=('Segoe UI', 12))
+        self.playbackStartKey = Label(hotkeyLine, text=hotkeyVisible[2], style="HotkeyDisplay.TLabel")
         self.playbackStartKey.grid(row=2, column=1, pady=5)
 
         Button(hotkeyLine, text=main_app.text_content["options_menu"]["settings_menu"]["hotkeys_settings"]["stop_playback_text"],
                command=lambda: hotkeyManager.enable_hot_key_detection("Playback_Stop", self.playbackStopKey, 3)).grid(row=3, column=0,
                                                                                                                       padx=10)
-        self.playbackStopKey = Label(hotkeyLine, text=hotkeyVisible[3], font=('Segoe UI', 12))
+        self.playbackStopKey = Label(hotkeyLine, text=hotkeyVisible[3], style="HotkeyDisplay.TLabel")
         self.playbackStopKey.grid(row=3, column=1, pady=5)
 
         hotkeyLine.pack()

@@ -11,25 +11,25 @@ class CollapsibleSection(Frame):
         self._expanded = expanded
 
         # Header
-        self.header = Frame(self)
+        self.header = Frame(self, style="SectionHeader.TFrame")
         self.header.pack(fill=X)
 
         arrow = "\u25bc" if expanded else "\u25b6"
         self.toggle_label = Label(
             self.header,
             text=f" {arrow}  {title}",
-            font=("TkDefaultFont", 10, "bold"),
+            style="SectionHeader.TLabel",
             cursor="hand2",
         )
         self.toggle_label.pack(side=LEFT, fill=X, expand=True, pady=(4, 2))
         self.toggle_label.bind("<Button-1>", self._toggle)
 
         # Separator line under header
-        self._sep = Frame(self, height=1)
+        self._sep = Frame(self, height=1, style="SectionSep.TFrame")
         self._sep.pack(fill=X, padx=4)
 
         # Content frame — users add widgets to this
-        self.content = Frame(self)
+        self.content = Frame(self, style="Sidebar.TFrame")
         if expanded:
             self.content.pack(fill=BOTH, padx=8, pady=(2, 6))
 

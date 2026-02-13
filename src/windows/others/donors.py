@@ -9,6 +9,7 @@ from webbrowser import open_new
 from requests import RequestException, get
 
 from windows.popup import Popup
+from windows.theme import COLORS, FONTS
 
 
 class HyperlinkLabel(Label):
@@ -28,7 +29,7 @@ class HyperlinkLabel(Label):
         )
 
         style_name = f"{self._w}.Hyperlink.TLabel"
-        Style(self).configure(style_name, foreground="blue", font=link_font)
+        Style(self).configure(style_name, foreground=COLORS["link"], font=link_font)
         self.configure(style=style_name)
 
         self.bind("<Enter>", lambda e: self.configure(cursor="hand2"))
@@ -48,12 +49,13 @@ class Donors(Popup):
         self.donors_list = []
         self._main_app = main_app
 
-        Label(self, text=main_app.text_content["others_menu"]["donors_settings"]["sub_text"] + "! <3", font=('Arial', 12, 'bold')).pack(side=TOP, pady=5)
+        Label(self, text=main_app.text_content["others_menu"]["donors_settings"]["sub_text"] + "! <3",
+              style="Title.TLabel").pack(side=TOP, pady=5)
         support_work = HyperlinkLabel(
             self,
             text=main_app.text_content["others_menu"]["donors_settings"]["want_be_donor"],
             url="https://www.ko-fi.com/loudo",
-            font=("Arial", 10, "bold"),
+            font=FONTS["default_bold"],
         )
         support_work.pack(side=TOP, pady=3)
         self.donorsArea = Frame(self)

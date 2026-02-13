@@ -37,6 +37,7 @@ class SelectLanguage(Popup):
             buttonArea,
             text=main_app.text_content["global"]["confirm_button"],
             command=lambda: self.setNewLanguage(SelectLanguageVar.get(), main_app),
+            style="Primary.TButton",
         )
         self.confirm_button.pack(side=LEFT, padx=10)
         self.cancel_button = Button(

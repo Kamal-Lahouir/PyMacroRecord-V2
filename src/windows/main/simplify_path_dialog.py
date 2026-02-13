@@ -73,6 +73,7 @@ class SimplifyPathDialog(Popup):
             btn_frame,
             text=text.get("simplify_button", "Simplify"),
             command=self._confirm,
+            style="Primary.TButton",
         ).pack(side=LEFT, padx=4)
 
         Button(

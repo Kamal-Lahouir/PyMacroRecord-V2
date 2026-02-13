@@ -2,10 +2,10 @@ from tkinter import (
     LEFT,
     TOP,
     BooleanVar,
-    Spinbox,
+    StringVar,
     messagebox,
 )
-from tkinter.ttk import Button, Checkbutton, Frame, Label
+from tkinter.ttk import Button, Checkbutton, Frame, Label, Spinbox
 
 from windows.popup import Popup
 
@@ -16,8 +16,7 @@ class Repeat(Popup):
                          parent)
         main_app.prevent_record = True
         self.settings = main_app.settings
-        Label(self, text=main_app.text_content["options_menu"]["playback_menu"]["repeat_settings"]["sub_text"],
-              font=('Segoe UI', 10)).pack(side=TOP, pady=5)
+        Label(self, text=main_app.text_content["options_menu"]["playback_menu"]["repeat_settings"]["sub_text"]).pack(side=TOP, pady=5)
         userSettings = main_app.settings.settings_dict
         self.repeat_infinitely = BooleanVar()
         self.repeat_infinitely.set(userSettings["Playback"]["Repeat"]["Infinite"])
@@ -26,15 +25,15 @@ class Repeat(Popup):
                                     variable=self.repeat_infinitely)
         infiniteCheck.pack(pady=5)
 
-        repeatTimes = Spinbox(self, from_=1, to=100000000, width=7, validate="key",
-                              validatecommand=(main_app.validate_cmd, "%d", "%P"))
-        repeatTimes.delete(0, "end")
-        repeatTimes.insert(0, userSettings["Playback"]["Repeat"]["Times"])
+        self._repeat_val = StringVar(value=str(userSettings["Playback"]["Repeat"]["Times"]))
+        repeatTimes = Spinbox(self, from_=1, to=100000000, width=7,
+                              textvariable=self._repeat_val)
         repeatTimes.pack(pady=5)
 
         buttonArea = Frame(self)
         Button(buttonArea, text=main_app.text_content["global"]["confirm_button"],
-               command=lambda: self.setNewRepeat(int(repeatTimes.get()), main_app)).pack(side=LEFT, padx=5)
+               command=lambda: self.setNewRepeat(int(repeatTimes.get()), main_app),
+               style="Primary.TButton").pack(side=LEFT, padx=5)
         Button(buttonArea, text=main_app.text_content["global"]["cancel_button"],
                command=self.destroy).pack(side=LEFT, padx=5)
         buttonArea.pack(pady=10)

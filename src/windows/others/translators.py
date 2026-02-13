@@ -32,7 +32,8 @@ class Translators(Popup):
                 except Exception as e:
                     print(f"Error while opening {filename}: {e}")
 
-        Label(self, text=main_app.text_content["others_menu"]["translators_settings"]["sub_text"] + "! <3", font=('Arial', 12, 'bold')).pack(side=TOP, pady=5)
+        Label(self, text=main_app.text_content["others_menu"]["translators_settings"]["sub_text"] + "! <3",
+              style="Title.TLabel").pack(side=TOP, pady=5)
         self.translatorsArea = Frame(self)
         self.navigationArea = Frame(self)
         self.pageArea = Frame(self)

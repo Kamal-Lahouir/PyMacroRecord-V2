@@ -8,28 +8,35 @@ from tkinter.ttk import (
 )
 
 from windows.main.collapsible_section import CollapsibleSection
+from windows.theme import COLORS
 
 
 class Sidebar(Frame):
     """Scrollable sidebar with inline playback, recording, and after-playback options."""
 
     def __init__(self, main_app):
-        super().__init__(main_app, width=260)
+        super().__init__(main_app, width=260, style="Sidebar.TFrame")
+        self.pack_propagate(False)  # Keep width stable during PanedWindow resize
         self.main_app = main_app
         self.settings = main_app.settings
         self.settings_dict = main_app.settings.settings_dict
         text = main_app.text_content
 
-        # Scrollable container
-        self.canvas = Canvas(self, borderwidth=0, highlightthickness=0, width=240)
-        self.scrollbar = Scrollbar(self, orient=VERTICAL, command=self.canvas.yview)
-        self.inner_frame = Frame(self.canvas)
+        self._scrollregion_pending = None
 
-        self.canvas.create_window((0, 0), window=self.inner_frame, anchor=NW)
-        self.inner_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox(ALL)),
+        # Scrollable container (Canvas is a tk widget — bg set directly)
+        self.canvas = Canvas(
+            self, borderwidth=0, highlightthickness=0,
+            bg=COLORS["bg_secondary"],
         )
+        self.scrollbar = Scrollbar(self, orient=VERTICAL, command=self.canvas.yview)
+        self.inner_frame = Frame(self.canvas, style="Sidebar.TFrame")
+
+        self._canvas_window = self.canvas.create_window(
+            (0, 0), window=self.inner_frame, anchor=NW
+        )
+        self.inner_frame.bind("<Configure>", self._on_inner_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
         self.scrollbar.pack(side=RIGHT, fill=Y)
@@ -52,11 +59,10 @@ class Sidebar(Frame):
         pc = self.playback_section.content
 
         # Speed
-        speed_frame = Frame(pc)
+        speed_frame = Frame(pc, style="Sidebar.TFrame")
         speed_frame.pack(fill=X, pady=2)
-        Label(speed_frame, text=sidebar_text.get("speed_label", "Speed") + ":").pack(
-            side=LEFT, padx=(0, 4)
-        )
+        Label(speed_frame, text=sidebar_text.get("speed_label", "Speed") + ":",
+              style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 4))
         self._speed_var = DoubleVar(value=self.settings_dict["Playback"]["Speed"])
         self._speed_spinbox = Spinbox(
             speed_frame,
@@ -72,11 +78,10 @@ class Sidebar(Frame):
         self._speed_spinbox.bind("<FocusOut>", lambda e: self._on_speed_change())
 
         # Repeat Times
-        repeat_frame = Frame(pc)
+        repeat_frame = Frame(pc, style="Sidebar.TFrame")
         repeat_frame.pack(fill=X, pady=2)
-        Label(repeat_frame, text=sidebar_text.get("repeat_label", "Repeat") + ":").pack(
-            side=LEFT, padx=(0, 4)
-        )
+        Label(repeat_frame, text=sidebar_text.get("repeat_label", "Repeat") + ":",
+              style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 4))
         self._repeat_var = IntVar(value=self.settings_dict["Playback"]["Repeat"]["Times"])
         self._repeat_spinbox = Spinbox(
             repeat_frame,
@@ -91,7 +96,7 @@ class Sidebar(Frame):
         self._repeat_spinbox.bind("<FocusOut>", lambda e: self._on_repeat_change())
 
         # Infinite
-        inf_frame = Frame(pc)
+        inf_frame = Frame(pc, style="Sidebar.TFrame")
         inf_frame.pack(fill=X, pady=2)
         self._infinite_var = BooleanVar(
             value=self.settings_dict["Playback"]["Repeat"].get("Infinite", False)
@@ -101,14 +106,14 @@ class Sidebar(Frame):
             text=sidebar_text.get("infinite_label", "Infinite"),
             variable=self._infinite_var,
             command=self._on_infinite_change,
+            style="Sidebar.TCheckbutton",
         ).pack(side=LEFT)
 
         # Delay between repeats
-        delay_frame = Frame(pc)
+        delay_frame = Frame(pc, style="Sidebar.TFrame")
         delay_frame.pack(fill=X, pady=2)
-        Label(delay_frame, text=sidebar_text.get("delay_label", "Delay (s)") + ":").pack(
-            side=LEFT, padx=(0, 4)
-        )
+        Label(delay_frame, text=sidebar_text.get("delay_label", "Delay (s)") + ":",
+              style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 4))
         self._delay_var = IntVar(value=self.settings_dict["Playback"]["Repeat"]["Delay"])
         self._delay_spinbox = Spinbox(
             delay_frame,
@@ -162,6 +167,7 @@ class Sidebar(Frame):
             text=rec_text.get("mouse_movement_text", "Mouse Movement"),
             variable=self._mouse_move_var,
             command=lambda: self._toggle_setting("Recordings", "Mouse_Move"),
+            style="Sidebar.TCheckbutton",
         ).pack(fill=X, pady=1)
 
         self._mouse_click_var = BooleanVar(
@@ -172,6 +178,7 @@ class Sidebar(Frame):
             text=rec_text.get("mouse_click_text", "Mouse Click"),
             variable=self._mouse_click_var,
             command=lambda: self._toggle_setting("Recordings", "Mouse_Click"),
+            style="Sidebar.TCheckbutton",
         ).pack(fill=X, pady=1)
 
         self._keyboard_var = BooleanVar(
@@ -182,6 +189,7 @@ class Sidebar(Frame):
             text=rec_text.get("keyboard_text", "Keyboard"),
             variable=self._keyboard_var,
             command=lambda: self._toggle_setting("Recordings", "Keyboard"),
+            style="Sidebar.TCheckbutton",
         ).pack(fill=X, pady=1)
 
         # ── After Playback Section ───────────────────────────────────
@@ -210,9 +218,8 @@ class Sidebar(Frame):
         self._after_mode_var = StringVar(
             value=self.settings_dict["After_Playback"]["Mode"]
         )
-        Label(ac, text=after_text.get("sub_text", "On playback complete") + ":").pack(
-            fill=X, pady=(0, 2)
-        )
+        Label(ac, text=after_text.get("sub_text", "On playback complete") + ":",
+              style="Sidebar.TLabel").pack(fill=X, pady=(0, 2))
         self._after_combo = Combobox(
             ac,
             textvariable=self._after_mode_var,
@@ -223,6 +230,24 @@ class Sidebar(Frame):
         self._after_combo.pack(fill=X, pady=2)
         self._after_combo.bind("<<ComboboxSelected>>", self._on_after_mode_change)
 
+    # ── Canvas / scrollregion helpers ────────────────────────────────
+
+    def _on_canvas_configure(self, event):
+        """Keep inner frame width in sync with canvas so content fills it."""
+        self.canvas.itemconfigure(self._canvas_window, width=event.width)
+
+    def _on_inner_configure(self, event=None):
+        """Debounced scroll region update — avoids per-pixel recalc."""
+        if self._scrollregion_pending is not None:
+            self.after_cancel(self._scrollregion_pending)
+        self._scrollregion_pending = self.after(
+            20, self._update_scrollregion
+        )
+
+    def _update_scrollregion(self):
+        self._scrollregion_pending = None
+        self.canvas.configure(scrollregion=self.canvas.bbox(ALL))
+
     # ── Time Row Builder ─────────────────────────────────────────────
 
     def _build_time_row(self, parent, label_text, setting_key):
@@ -232,9 +257,11 @@ class Sidebar(Frame):
         m = (total_seconds % 3600) // 60
         s = total_seconds % 60
 
-        frame = Frame(parent)
+        frame = Frame(parent, style="Sidebar.TFrame")
         frame.pack(fill=X, pady=2)
-        Label(frame, text=label_text).pack(side=LEFT, padx=(0, 4))
+        Label(frame, text=label_text, style="Sidebar.TLabel").pack(
+            side=LEFT, padx=(0, 4)
+        )
 
         h_var = IntVar(value=h)
         m_var = IntVar(value=m)
@@ -242,15 +269,15 @@ class Sidebar(Frame):
 
         h_spin = Spinbox(frame, from_=0, to=24, width=3, textvariable=h_var)
         h_spin.pack(side=LEFT)
-        Label(frame, text="h").pack(side=LEFT, padx=(0, 2))
+        Label(frame, text="h", style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 2))
 
         m_spin = Spinbox(frame, from_=0, to=59, width=3, textvariable=m_var)
         m_spin.pack(side=LEFT)
-        Label(frame, text="m").pack(side=LEFT, padx=(0, 2))
+        Label(frame, text="m", style="Sidebar.TLabel").pack(side=LEFT, padx=(0, 2))
 
         s_spin = Spinbox(frame, from_=0, to=59, width=3, textvariable=s_var)
         s_spin.pack(side=LEFT)
-        Label(frame, text="s").pack(side=LEFT)
+        Label(frame, text="s", style="Sidebar.TLabel").pack(side=LEFT)
 
         def on_change(*_args):
             try:

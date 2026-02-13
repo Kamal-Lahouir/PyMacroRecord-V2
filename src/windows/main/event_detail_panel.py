@@ -63,6 +63,7 @@ class EventDetailPanel(Frame):
             self.label_frame,
             text=text.get("apply_changes", "Apply Changes"),
             command=self._apply_changes,
+            style="Primary.TButton",
         )
 
         # Track which widgets are currently shown
