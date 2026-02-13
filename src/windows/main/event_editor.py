@@ -24,7 +24,7 @@ EVENT_TYPE_TAGS = {
 
 
 class EventEditor(Frame):
-    """Treeview-based macro event editor with inline editing and detail panel."""
+    """Treeview-based macro event editor with grouped mouse path display."""
 
     def __init__(self, main_app):
         super().__init__(main_app)
@@ -32,6 +32,11 @@ class EventEditor(Frame):
         self.macro = main_app.macro
         self._inline_entry = None
         self._drag_data = {"item": None, "start_y": 0}
+
+        # Mapping dictionaries for grouped display
+        self._group_items = {}       # group_iid -> {"start": int, "end": int, "count": int}
+        self._index_to_iid = {}      # event_index -> treeview iid
+        self._iid_to_index = {}      # treeview iid -> event_index
 
         text = main_app.text_content.get("editor", {})
 
@@ -41,8 +46,12 @@ class EventEditor(Frame):
 
         columns = ("index", "type", "params", "delay")
         self.tree = Treeview(
-            tree_frame, columns=columns, show="headings", selectmode="extended"
+            tree_frame, columns=columns, show="tree headings", selectmode="extended"
         )
+        # Column #0 for expand/collapse arrows
+        self.tree.column("#0", width=30, minwidth=20, stretch=False)
+        self.tree.heading("#0", text="")
+
         self.tree.heading("index", text=text.get("column_index", "#"))
         self.tree.heading("type", text=text.get("column_type", "Type"))
         self.tree.heading("params", text=text.get("column_params", "Parameters"))
@@ -64,6 +73,7 @@ class EventEditor(Frame):
         self.tree.tag_configure("mouse_click", background="#fce8e6")
         self.tree.tag_configure("scroll", background="#fef7e0")
         self.tree.tag_configure("keyboard", background="#e6f4ea")
+        self.tree.tag_configure("mouse_path_group", background="#c8d6e8")
 
         # Detail panel at bottom
         self.detail_panel = EventDetailPanel(self, main_app)
@@ -98,6 +108,12 @@ class EventEditor(Frame):
             label=editor_text.get("move_down", "Move Down"),
             command=self.move_selected_down,
         )
+        self._context_menu.add_separator()
+        self._simplify_menu_index = 8  # index of simplify item in context menu
+        self._context_menu.add_command(
+            label=editor_text.get("simplify_path", "Simplify Path..."),
+            command=self._on_simplify_path,
+        )
 
         # Bindings
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
@@ -118,23 +134,120 @@ class EventEditor(Frame):
         self.tree.bind("<B1-Motion>", self._on_drag_motion)
         self.tree.bind("<ButtonRelease-1>", self._on_drag_end)
 
+        # Lazy expand/collapse for groups
+        self.tree.bind("<<TreeviewOpen>>", self._on_group_expand)
+        self.tree.bind("<<TreeviewClose>>", self._on_group_collapse)
+
     # ── Refresh / Display ────────────────────────────────────────────
 
     def refresh(self):
-        """Reload all events from macro_events into the treeview."""
+        """Reload all events from macro_events into the treeview with grouping."""
         self._cancel_inline_edit()
         self.detail_panel.clear()
         self.tree.delete(*self.tree.get_children())
+        self._group_items.clear()
+        self._index_to_iid.clear()
+        self._iid_to_index.clear()
+
         events = self.macro.macro_events.get("events", [])
-        for i, event in enumerate(events):
-            self._insert_tree_row(i, event)
+        display_items = self.main_app.macro_editor.get_cursor_move_groups()
+
+        group_counter = 0
+        for item in display_items:
+            if item["kind"] == "single":
+                idx = item["index"]
+                iid = f"evt_{idx}"
+                event = events[idx]
+                values = self._event_to_values(idx, event)
+                tag = self._get_event_tag(event.get("type", ""))
+                self.tree.insert(
+                    "", END, iid=iid, values=values,
+                    tags=(tag,) if tag else ()
+                )
+                self._index_to_iid[idx] = iid
+                self._iid_to_index[iid] = idx
+
+            elif item["kind"] == "group":
+                group_iid = f"grp_{group_counter}"
+                group_counter += 1
+
+                # Format group summary row
+                summary = (
+                    "",  # no index number for group header
+                    "Mouse Path",
+                    f"({item['start_x']},{item['start_y']}) \u2192 "
+                    f"({item['end_x']},{item['end_y']}) "
+                    f"[{item['count']} moves]",
+                    f"{item['total_time']:.3f}",
+                )
+                self.tree.insert(
+                    "", END, iid=group_iid, values=summary,
+                    tags=("mouse_path_group",), open=False,
+                )
+                self._group_items[group_iid] = {
+                    "start": item["start"],
+                    "end": item["end"],
+                    "count": item["count"],
+                }
+
+                # Insert a dummy child so the expand arrow appears
+                dummy_iid = f"dummy_{group_iid}"
+                self.tree.insert(group_iid, END, iid=dummy_iid, values=("", "", "Loading...", ""))
+
+    def _on_group_expand(self, event=None):
+        """Lazy-load children when a group is expanded."""
+        selected = self.tree.focus()
+        if not selected or selected not in self._group_items:
+            return
+
+        group_info = self._group_items[selected]
+        dummy_iid = f"dummy_{selected}"
+
+        # Check if dummy still exists (first expand)
+        if self.tree.exists(dummy_iid):
+            self.tree.delete(dummy_iid)
+
+            events = self.macro.macro_events.get("events", [])
+            for idx in range(group_info["start"], group_info["end"] + 1):
+                child_iid = f"evt_{idx}"
+                event = events[idx]
+                values = self._event_to_values(idx, event)
+                tag = self._get_event_tag(event.get("type", ""))
+                self.tree.insert(
+                    selected, END, iid=child_iid, values=values,
+                    tags=(tag,) if tag else ()
+                )
+                self._index_to_iid[idx] = child_iid
+                self._iid_to_index[child_iid] = idx
+
+    def _on_group_collapse(self, event=None):
+        """Remove children when a group is collapsed to save memory."""
+        selected = self.tree.focus()
+        if not selected or selected not in self._group_items:
+            return
+
+        group_info = self._group_items[selected]
+
+        # Remove children from mappings and tree
+        for child_iid in list(self.tree.get_children(selected)):
+            if child_iid in self._iid_to_index:
+                idx = self._iid_to_index.pop(child_iid)
+                self._index_to_iid.pop(idx, None)
+            self.tree.delete(child_iid)
+
+        # Re-insert dummy
+        dummy_iid = f"dummy_{selected}"
+        self.tree.insert(selected, END, iid=dummy_iid, values=("", "", "Loading...", ""))
 
     def refresh_row(self, index):
         """Update a single row in the treeview."""
         events = self.macro.macro_events.get("events", [])
         if index < 0 or index >= len(events):
             return
-        iid = str(index)
+        iid = self._index_to_iid.get(index)
+        if iid is None:
+            # Row not currently visible (group collapsed), skip
+            return
         event = events[index]
         values = self._event_to_values(index, event)
         tag = self._get_event_tag(event.get("type", ""))
@@ -146,7 +259,10 @@ class EventEditor(Frame):
     def _insert_tree_row(self, index, event):
         values = self._event_to_values(index, event)
         tag = self._get_event_tag(event.get("type", ""))
-        self.tree.insert("", END, iid=str(index), values=values, tags=(tag,) if tag else ())
+        iid = f"evt_{index}"
+        self.tree.insert("", END, iid=iid, values=values, tags=(tag,) if tag else ())
+        self._index_to_iid[index] = iid
+        self._iid_to_index[iid] = index
 
     @staticmethod
     def _get_event_tag(event_type):
@@ -185,8 +301,26 @@ class EventEditor(Frame):
 
     def _on_select(self, event=None):
         selected = self.tree.selection()
-        if selected:
-            index = int(selected[0])
+        if not selected:
+            self.detail_panel.clear()
+            return
+
+        iid = selected[0]
+        if iid in self._group_items:
+            # Group selected — show path summary
+            group_info = self._group_items[iid]
+            stats = self.main_app.macro_editor.get_path_stats(
+                group_info["start"], group_info["end"]
+            )
+            self.detail_panel.show_group(group_info, stats)
+            # Update status bar with path info
+            self.main_app.status_text.configure(
+                text=f"Mouse Path: {stats['total_moves']} moves, "
+                     f"distance: {stats['total_distance']:.0f}px, "
+                     f"duration: {stats['total_time']:.3f}s"
+            )
+        elif iid in self._iid_to_index:
+            index = self._iid_to_index[iid]
             evt = self.main_app.macro_editor.get_event(index)
             if evt:
                 self.detail_panel.show_event(index, evt)
@@ -194,7 +328,15 @@ class EventEditor(Frame):
             self.detail_panel.clear()
 
     def get_selected_indices(self):
-        return [int(s) for s in self.tree.selection()]
+        """Resolve selected items to event indices, expanding groups."""
+        indices = []
+        for iid in self.tree.selection():
+            if iid in self._group_items:
+                g = self._group_items[iid]
+                indices.extend(range(g["start"], g["end"] + 1))
+            elif iid in self._iid_to_index:
+                indices.append(self._iid_to_index[iid])
+        return sorted(set(indices))
 
     # ── Inline Editing ───────────────────────────────────────────────
 
@@ -205,6 +347,10 @@ class EventEditor(Frame):
         column = self.tree.identify_column(event.x)
         item = self.tree.identify_row(event.y)
         if not item:
+            return
+
+        # Don't allow inline editing on group headers or dummy rows
+        if item.startswith("grp_") or item.startswith("dummy_"):
             return
 
         col_index = int(column.replace("#", "")) - 1
@@ -244,7 +390,9 @@ class EventEditor(Frame):
         self._inline_entry.destroy()
         self._inline_entry = None
 
-        index = int(item)
+        if item not in self._iid_to_index:
+            return
+        index = self._iid_to_index[item]
         if col == 3:  # delay
             try:
                 delay = float(new_value)
@@ -282,10 +430,10 @@ class EventEditor(Frame):
             self.main_app.macro_editor.move_event(idx, idx - 1)
         self.refresh()
         # Re-select moved items
-        new_selection = [str(i - 1) for i in sorted(indices)]
-        for iid in new_selection:
-            if self.tree.exists(iid):
-                self.tree.selection_add(iid)
+        for i in sorted(indices):
+            new_iid = self._index_to_iid.get(i - 1)
+            if new_iid and self.tree.exists(new_iid):
+                self.tree.selection_add(new_iid)
 
     def move_selected_down(self):
         indices = self.get_selected_indices()
@@ -295,10 +443,10 @@ class EventEditor(Frame):
         for idx in sorted(indices, reverse=True):
             self.main_app.macro_editor.move_event(idx, idx + 1)
         self.refresh()
-        new_selection = [str(i + 1) for i in sorted(indices)]
-        for iid in new_selection:
-            if self.tree.exists(iid):
-                self.tree.selection_add(iid)
+        for i in sorted(indices):
+            new_iid = self._index_to_iid.get(i + 1)
+            if new_iid and self.tree.exists(new_iid):
+                self.tree.selection_add(new_iid)
 
     def copy_selected(self):
         indices = self.get_selected_indices()
@@ -314,9 +462,23 @@ class EventEditor(Frame):
         self.refresh()
         # Select pasted items
         for i in range(insert_at, insert_at + count):
-            iid = str(i)
-            if self.tree.exists(iid):
+            iid = self._index_to_iid.get(i)
+            if iid and self.tree.exists(iid):
                 self.tree.selection_add(iid)
+
+    # ── Simplify Path ─────────────────────────────────────────────────
+
+    def _on_simplify_path(self):
+        """Open simplify dialog for the selected group."""
+        selected = self.tree.selection()
+        if not selected:
+            return
+        iid = selected[0]
+        if iid not in self._group_items:
+            return
+        group_info = self._group_items[iid]
+        from windows.main.simplify_path_dialog import SimplifyPathDialog
+        SimplifyPathDialog(self.main_app, group_info["start"], group_info["end"])
 
     # ── Drag and Drop ────────────────────────────────────────────────
 
@@ -345,15 +507,22 @@ class EventEditor(Frame):
         if abs(event.y - self._drag_data["start_y"]) < 8:
             return
         target = self.tree.identify_row(event.y)
-        if target and source != target:
-            from_idx = int(source)
-            to_idx = int(target)
-            self.main_app.macro_editor.move_event(from_idx, to_idx)
-            self.refresh()
-            # Select the moved item
-            new_iid = str(to_idx)
-            if self.tree.exists(new_iid):
-                self.tree.selection_set(new_iid)
+        if not target or source == target:
+            return
+        # Don't support dragging group rows or onto group rows
+        if (source.startswith("grp_") or source.startswith("dummy_") or
+                target.startswith("grp_") or target.startswith("dummy_")):
+            return
+        if source not in self._iid_to_index or target not in self._iid_to_index:
+            return
+        from_idx = self._iid_to_index[source]
+        to_idx = self._iid_to_index[target]
+        self.main_app.macro_editor.move_event(from_idx, to_idx)
+        self.refresh()
+        # Select the moved item
+        new_iid = self._index_to_iid.get(to_idx)
+        if new_iid and self.tree.exists(new_iid):
+            self.tree.selection_set(new_iid)
 
     # ── Context Menu ──────────────────────────────────────────────────
 
@@ -363,6 +532,23 @@ class EventEditor(Frame):
         item = self.tree.identify_row(event.y)
         if item and item not in self.tree.selection():
             self.tree.selection_set(item)
+
+        # Enable/disable "Simplify Path" based on whether a group is selected
+        has_group = any(
+            iid in self._group_items for iid in self.tree.selection()
+        )
+        try:
+            if has_group:
+                self._context_menu.entryconfigure(
+                    self._simplify_menu_index, state="normal"
+                )
+            else:
+                self._context_menu.entryconfigure(
+                    self._simplify_menu_index, state="disabled"
+                )
+        except Exception:
+            pass
+
         try:
             self._context_menu.tk_popup(event.x_root, event.y_root)
         finally:

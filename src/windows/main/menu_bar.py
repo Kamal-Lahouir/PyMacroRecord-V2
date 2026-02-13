@@ -72,6 +72,11 @@ class MenuBar(Menu):
             accelerator="Ctrl+A",
             command=self._on_select_all,
         )
+        self.edit_menu.add_separator()
+        self.edit_menu.add_command(
+            label=editor_text.get("simplify_path", "Simplify Path..."),
+            command=self._on_simplify_path,
+        )
 
         # ── View Menu ─────────────────────────────────────────────
         view_text = self.text_config.get("view_menu", {})
@@ -174,6 +179,11 @@ class MenuBar(Menu):
         if editor:
             all_items = editor.tree.get_children()
             editor.tree.selection_set(all_items)
+
+    def _on_simplify_path(self):
+        editor = getattr(self.master, "event_editor", None)
+        if editor:
+            editor._on_simplify_path()
 
     def _toggle_sidebar(self):
         main_app = self.master

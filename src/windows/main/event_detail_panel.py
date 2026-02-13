@@ -9,6 +9,7 @@ class EventDetailPanel(Frame):
         super().__init__(parent)
         self.main_app = main_app
         self._current_index = None
+        self._current_group = None
 
         text = main_app.text_content.get("editor", {})
 
@@ -127,20 +128,95 @@ class EventDetailPanel(Frame):
         self._apply_btn.grid(row=row, column=0, columnspan=4, pady=(6, 4))
         self._shown_widgets.append(self._apply_btn)
 
+    def show_group(self, group_info, stats):
+        """Show summary for a mouse path group with editable total delay."""
+        self._clear_fields()
+        self._current_group = group_info
+
+        text = self.main_app.text_content.get("editor", {})
+        self._type_var.set(text.get("mouse_path", "Mouse Path"))
+
+        row = 1
+        # Start coordinates
+        start_lbl = Label(self.label_frame, text=text.get("group_start", "Start") + ":")
+        start_lbl.grid(row=row, column=0, sticky=W, padx=4, pady=2)
+        start_val = Label(
+            self.label_frame,
+            text=f"({stats['start_x']}, {stats['start_y']})",
+        )
+        start_val.grid(row=row, column=1, columnspan=3, sticky=W, padx=4, pady=2)
+        self._shown_widgets.extend([start_lbl, start_val])
+        row += 1
+
+        # End coordinates
+        end_lbl = Label(self.label_frame, text=text.get("group_end", "End") + ":")
+        end_lbl.grid(row=row, column=0, sticky=W, padx=4, pady=2)
+        end_val = Label(
+            self.label_frame,
+            text=f"({stats['end_x']}, {stats['end_y']})",
+        )
+        end_val.grid(row=row, column=1, columnspan=3, sticky=W, padx=4, pady=2)
+        self._shown_widgets.extend([end_lbl, end_val])
+        row += 1
+
+        # Moves and distance
+        moves_lbl = Label(self.label_frame, text=text.get("group_moves", "Moves") + ":")
+        moves_lbl.grid(row=row, column=0, sticky=W, padx=4, pady=2)
+        moves_val = Label(self.label_frame, text=str(stats["total_moves"]))
+        moves_val.grid(row=row, column=1, sticky=W, padx=4, pady=2)
+
+        dist_lbl = Label(self.label_frame, text=text.get("group_distance", "Distance") + ":")
+        dist_lbl.grid(row=row, column=2, sticky=W, padx=4, pady=2)
+        dist_val = Label(self.label_frame, text=f"{stats['total_distance']:.0f}px")
+        dist_val.grid(row=row, column=3, sticky=W, padx=4, pady=2)
+        self._shown_widgets.extend([moves_lbl, moves_val, dist_lbl, dist_val])
+        row += 1
+
+        # Duration — editable
+        dur_lbl = Label(self.label_frame, text=text.get("group_duration", "Duration") + " (s):")
+        dur_lbl.grid(row=row, column=0, sticky=W, padx=4, pady=2)
+        self._delay_var.set(f"{stats['total_time']:.4f}")
+        self._delay_entry.grid(row=row, column=1, sticky=W, padx=4, pady=2)
+        self._shown_widgets.extend([dur_lbl, self._delay_entry])
+        row += 1
+
+        # Apply button
+        self._apply_btn.grid(row=row, column=0, columnspan=4, pady=(6, 4))
+        self._shown_widgets.append(self._apply_btn)
+
     def _clear_fields(self):
         for w in self._shown_widgets:
             w.grid_forget()
         self._shown_widgets.clear()
         self._current_index = None
+        self._current_group = None
 
     def clear(self):
         self._clear_fields()
         self._type_var.set("")
 
     def _apply_changes(self):
+        macro_editor = self.main_app.macro_editor
+        editor = getattr(self.main_app, "event_editor", None)
+
+        # ── Group delay rescale ──────────────────────────────────────
+        if self._current_group is not None:
+            try:
+                new_total = float(self._delay_var.get())
+            except ValueError:
+                return
+            macro_editor.rescale_group_time(
+                self._current_group["start"],
+                self._current_group["end"],
+                new_total,
+            )
+            if editor:
+                editor.refresh()
+            return
+
+        # ── Single event edit ────────────────────────────────────────
         if self._current_index is None:
             return
-        macro_editor = self.main_app.macro_editor
         event = macro_editor.get_event(self._current_index)
         if event is None:
             return
@@ -175,7 +251,5 @@ class EventDetailPanel(Frame):
 
         if fields:
             macro_editor.update_event_fields(self._current_index, fields)
-            # Refresh the editor row
-            editor = getattr(self.main_app, "event_editor", None)
             if editor:
                 editor.refresh_row(self._current_index)

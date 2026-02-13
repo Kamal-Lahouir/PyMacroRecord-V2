@@ -161,7 +161,19 @@
       "scroll": "Scroll",
       "keyboard": "Keyboard",
       "detail_panel_title": "Event Details",
-      "apply_changes": "Apply Changes"
+      "apply_changes": "Apply Changes",
+      "mouse_path": "Mouse Path",
+      "simplify_path": "Simplify Path...",
+      "simplify_dialog_title": "Simplify Mouse Path",
+      "simplify_original": "Original points",
+      "simplify_tolerance": "Tolerance (pixels)",
+      "simplify_result": "Result",
+      "simplify_button": "Simplify",
+      "group_start": "Start",
+      "group_end": "End",
+      "group_moves": "Moves",
+      "group_distance": "Distance",
+      "group_duration": "Duration"
     },
     "sidebar": {
       "playback_section": "Playback",

@@ -94,6 +94,17 @@ class Toolbar(Frame):
         )
         self.paste_btn.pack(side=LEFT, padx=2, pady=4)
 
+        sep4 = Separator(self, orient=VERTICAL)
+        sep4.pack(side=LEFT, fill="y", padx=4, pady=4)
+
+        self.simplify_btn = Button(
+            self,
+            text=editor_text.get("simplify_path", "Simplify Path..."),
+            command=self._on_simplify,
+            state=DISABLED,
+        )
+        self.simplify_btn.pack(side=LEFT, padx=2, pady=4)
+
     def _on_insert(self):
         editor = getattr(self.main_app, "event_editor", None)
         if editor:
@@ -123,6 +134,11 @@ class Toolbar(Frame):
         editor = getattr(self.main_app, "event_editor", None)
         if editor:
             editor.paste_at_selection()
+
+    def _on_simplify(self):
+        editor = getattr(self.main_app, "event_editor", None)
+        if editor:
+            editor._on_simplify_path()
 
     def update_state(self, state):
         """Update button states based on app state.
@@ -174,5 +190,6 @@ class Toolbar(Frame):
             self.move_down_btn,
             self.copy_btn,
             self.paste_btn,
+            self.simplify_btn,
         ):
             btn.configure(state=state)
