@@ -1,0 +1,211 @@
+import copy
+import json
+import sys
+from json import load
+from os import path
+from sys import argv, platform
+from threading import Thread
+from time import time
+from tkinter import (
+    BOTH,
+    BOTTOM,
+    DISABLED,
+    HORIZONTAL,
+    LEFT,
+    NORMAL,
+    RIGHT,
+    TOP,
+    PhotoImage,
+    W,
+    X,
+)
+from tkinter.ttk import Button, Frame, Label, PanedWindow
+
+from PIL import Image
+from pystray import Icon, MenuItem
+
+from hotkeys.hotkeys_manager import HotkeysManager
+from macro import Macro
+from macro.macro_editor import MacroEditor
+from utils.get_file import resource_path
+from utils.not_windows import NotWindows
+from utils.record_file_management import RecordFileManagement
+from utils.user_settings import UserSettings
+from utils.version import Version
+from utils.warning_pop_up_save import confirm_save
+from windows.main.event_editor import EventEditor
+from windows.main.menu_bar import MenuBar
+from windows.main.sidebar import Sidebar
+from windows.main.toolbar import Toolbar
+from windows.others.new_ver_avalaible import NewVerAvailable
+from windows.window import Window
+
+
+def deepcopy_dict_missing_entries(dst:dict,src:dict):
+# recursively copy entries that are in src but not in dst
+    for k,v in src.items():
+        if k not in dst:
+            dst[k] = copy.deepcopy(v)
+        elif isinstance(v,dict):
+            deepcopy_dict_missing_entries(dst[k],v)
+
+class MainApp(Window):
+    """Main windows of the application"""
+
+    def __init__(self):
+        super().__init__("PyMacroRecord", 1000, 620, resizable_window=True, min_w=860, min_h=450)
+        self.attributes("-topmost", 1)
+        if platform == "win32":
+            self.iconbitmap(resource_path(path.join("assets", "logo.ico")))
+
+        self.settings = UserSettings(self)
+
+        self.load_language()
+
+        # For save message purpose
+        self.macro_saved = False
+        self.macro_recorded = False
+        self.current_file = None
+        self.prevent_record = False
+
+        self.version = Version(self.settings.settings_dict, self)
+
+        self.macro = Macro(self)
+        self.macro_editor = MacroEditor(self.macro)
+
+        self.validate_cmd = self.register(self.validate_input)
+
+        # ── Layout ────────────────────────────────────────────────
+
+        # Toolbar at top
+        self.toolbar = Toolbar(self)
+        self.toolbar.pack(side=TOP, fill=X)
+
+        # Compatibility shims so Macro/RecordFileManagement still work
+        self.playBtn = self.toolbar.play_btn
+        self.recordBtn = self.toolbar.record_btn
+        self.playImg = self.toolbar.play_img
+        self.recordImg = self.toolbar.record_img
+        self.stopImg = self.toolbar.stop_img
+
+        # Status bar at bottom
+        self.status_text = Label(self, text='', style="StatusBar.TLabel", anchor=W)
+        self.status_text.pack(side=BOTTOM, fill=X)
+
+        # Main PanedWindow: sidebar | editor
+        self.main_paned = PanedWindow(self, orient=HORIZONTAL)
+        self.main_paned.pack(fill=BOTH, expand=True)
+
+        # Sidebar
+        self.sidebar = Sidebar(self)
+        self.main_paned.add(self.sidebar, weight=0)
+
+        # Event editor
+        self.event_editor = EventEditor(self)
+        self.main_paned.add(self.event_editor, weight=1)
+
+        # Menu bar (after toolbar & editor exist so menu can reference them)
+        self.menu = MenuBar(self)
+
+        self.hotkeyManager = HotkeysManager(self)
+
+        # Import record if opened with .pmr extension
+        if len(argv) > 1:
+            with open(sys.argv[1], 'r') as record:
+                loaded_content = load(record)
+            self.macro.import_record(loaded_content)
+            self.macro_recorded = True
+            self.macro_saved = True
+            self.update_ui_state("has_recording")
+            self.event_editor.refresh()
+
+        record_management = RecordFileManagement(self, self.menu)
+
+        self.bind('<Control-Shift-S>', record_management.save_macro_as)
+        self.bind('<Control-s>', record_management.save_macro)
+        self.bind('<Control-l>', record_management.load_macro)
+        self.bind('<Control-n>', record_management.new_macro)
+
+        self.protocol("WM_DELETE_WINDOW", self.quit_software)
+        if platform.lower() != "darwin":
+            Thread(target=self.systemTray).start()
+
+        self.attributes("-topmost", 0)
+
+        if platform != "win32" and self.settings.first_time:
+            NotWindows(self)
+
+        if self.settings.settings_dict["Others"]["Check_update"]:
+            if self.version.new_version != "" and self.version.version != self.version.new_version:
+                if time() > self.settings.settings_dict["Others"]["Remind_new_ver_at"]:
+                    NewVerAvailable(self, self.version.new_version)
+        self.mainloop()
+
+    def load_language(self):
+        self.lang = self.settings.settings_dict["Language"]
+        with open(resource_path(path.join('langs', self.lang + '.json')), encoding='utf-8') as f:
+            self.text_content = json.load(f)
+        self.text_content = self.text_content["content"]
+
+        if self.lang != "en":
+            with open(resource_path(path.join('langs', 'en.json')), encoding='utf-8') as f:
+                en = json.load(f)
+            deepcopy_dict_missing_entries(self.text_content, en["content"])
+
+    def update_ui_state(self, state):
+        """Centralized UI state management.
+        state: 'idle', 'recording', 'playing', 'has_recording'
+        """
+        self.toolbar.update_state(state)
+        self.event_editor.update_state(state)
+        self.sidebar.update_state(state)
+
+    def systemTray(self):
+        """Just to show little icon on system tray"""
+        image = Image.open(resource_path(path.join("assets", "logo.ico")))
+        menu = (
+            MenuItem('Show', action=self.deiconify, default=True),
+        )
+        self.icon = Icon("name", image, "PyMacroRecord", menu)
+        self.icon.run()
+
+    def validate_input(self, action, value_if_allowed):
+        """Prevents from adding letters on an Entry label"""
+        if action == "1":  # Insert
+            try:
+                float(value_if_allowed)
+                return True
+            except ValueError:
+                return False
+        return True
+
+    def quit_software(self, force=False):
+        if not self.macro_saved and self.macro_recorded and not force:
+            wantToSave = confirm_save(self)
+            if wantToSave:
+                RecordFileManagement(self, self.menu).save_macro()
+            elif wantToSave is None:
+                return
+        if platform.lower() != "darwin":
+            self.icon.stop()
+        if platform.lower() == "linux":
+            self.destroy()
+        self.quit()
+
+    def on_version_checked(self):
+        about = getattr(self, 'about_window', None)
+        if about is not None:
+            updated_text = (
+                self.version.update
+                if self.version.update
+                else self.text_content["help_menu"]["about_settings"]["version_check_update_text"]["checking"]
+            )
+            about.update_status(updated_text)
+
+        if self.settings.settings_dict["Others"]["Check_update"]:
+            try:
+                if self.version.new_version != "" and self.version.version != self.version.new_version:
+                    if time() > self.settings.settings_dict["Others"]["Remind_new_ver_at"]:
+                        NewVerAvailable(self, self.version.new_version)
+            except Exception:
+                pass
