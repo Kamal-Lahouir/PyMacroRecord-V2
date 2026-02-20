@@ -234,6 +234,13 @@ class Macro:
                 sleep(timeSleep)
                 event_type = self.macro_events["events"][events]["type"]
 
+                # Skip disabled events
+                if self.macro_events["events"][events].get("disabled", False):
+                    continue
+
+                if event_type == "delayEvent":  # Pure delay — already slept above
+                    continue
+
                 if event_type == "cursorMove":  # Cursor Move
                     self.mouseControl.position = (
                         self.macro_events["events"][events]["x"],

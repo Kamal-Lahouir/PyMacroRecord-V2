@@ -105,6 +105,33 @@ class MainApp(Window):
                                 command=self._toolbar_delete, state=DISABLED)
         self.deleteBtn.pack(side=LEFT, padx=2)
 
+        Separator(toolbar, orient="vertical").pack(side=LEFT, fill="y", padx=6)
+
+        self.moveUpBtn = Button(toolbar, text=t_ed.get("toolbar_move_up", "▲ Up"),
+                                command=lambda: self.editor.move_up(),
+                                state=DISABLED)
+        self.moveUpBtn.pack(side=LEFT, padx=2)
+
+        self.moveDownBtn = Button(toolbar, text=t_ed.get("toolbar_move_down", "▼ Down"),
+                                  command=lambda: self.editor.move_down(),
+                                  state=DISABLED)
+        self.moveDownBtn.pack(side=LEFT, padx=2)
+
+        Separator(toolbar, orient="vertical").pack(side=LEFT, fill="y", padx=6)
+
+        self.toggleBtn = Button(toolbar, text=t_ed.get("toolbar_toggle_enabled", "Enable/Disable"),
+                                command=lambda: self.editor.toggle_enabled(),
+                                state=DISABLED)
+        self.toggleBtn.pack(side=LEFT, padx=2)
+
+        self.addDelayBtn = Button(toolbar, text=t_ed.get("toolbar_add_delay", "Add Delay"),
+                                  command=self._toolbar_add_delay, state=DISABLED)
+        self.addDelayBtn.pack(side=LEFT, padx=2)
+
+        self.findReplaceBtn = Button(toolbar, text=t_ed.get("toolbar_find_replace", "Find & Replace"),
+                                     command=self._toolbar_find_replace, state=DISABLED)
+        self.findReplaceBtn.pack(side=LEFT, padx=2)
+
         # Macro editor table
         self.editor = MacroEditor(self, self.text_content)
         self.editor.pack(expand=True, fill=BOTH)
@@ -204,8 +231,10 @@ class MainApp(Window):
                 pass
 
     def _set_edit_delete_state(self, state):
-        self.editBtn.configure(state=state)
-        self.deleteBtn.configure(state=state)
+        for btn in (self.editBtn, self.deleteBtn, self.moveUpBtn,
+                    self.moveDownBtn, self.toggleBtn, self.addDelayBtn,
+                    self.findReplaceBtn):
+            btn.configure(state=state)
 
     def _toolbar_edit(self):
         gi = self.editor.get_selected_group_index()
@@ -225,3 +254,11 @@ class MainApp(Window):
         else:
             del events[group["index"]]
         self.editor.refresh(self.macro.macro_events)
+
+    def _toolbar_add_delay(self):
+        from windows.editor.insert_delay_popup import InsertDelayPopup
+        InsertDelayPopup(self, self.editor)
+
+    def _toolbar_find_replace(self):
+        from windows.editor.search_replace_popup import SearchReplacePopup
+        SearchReplacePopup(self, self.editor)
