@@ -17,7 +17,7 @@ from tkinter import (
     W,
     X,
 )
-from tkinter.ttk import Button, Frame, Label
+from tkinter.ttk import Button, Frame, Label, Separator
 
 from PIL import Image
 from pystray import Icon, MenuItem
@@ -30,24 +30,26 @@ from utils.record_file_management import RecordFileManagement
 from utils.user_settings import UserSettings
 from utils.version import Version
 from utils.warning_pop_up_save import confirm_save
+from windows.editor.macro_editor import MacroEditor
 from windows.main.menu_bar import MenuBar
 from windows.others.new_ver_avalaible import NewVerAvailable
 from windows.window import Window
 
 
-def deepcopy_dict_missing_entries(dst:dict,src:dict):
-# recursively copy entries that are in src but not in dst
-    for k,v in src.items():
+def deepcopy_dict_missing_entries(dst: dict, src: dict):
+    # recursively copy entries that are in src but not in dst
+    for k, v in src.items():
         if k not in dst:
             dst[k] = copy.deepcopy(v)
-        elif isinstance(v,dict):
-            deepcopy_dict_missing_entries(dst[k],v)
+        elif isinstance(v, dict):
+            deepcopy_dict_missing_entries(dst[k], v)
 
 class MainApp(Window):
     """Main windows of the application"""
 
     def __init__(self):
-        super().__init__("PyMacroRecord", 350, 200)
+        super().__init__("PyMacroRecord", 900, 520)
+        self.resizable(True, True)
         self.attributes("-topmost", 1)
         if platform == "win32":
             self.iconbitmap(resource_path(path.join("assets", "logo.ico")))
@@ -75,33 +77,48 @@ class MainApp(Window):
         if self.settings.settings_dict["Recordings"]["Show_Events_On_Status_Bar"]:
             self.status_text.pack(side=BOTTOM, fill=X)
 
-        # Main Buttons (Start record, stop record, start playback, stop playback)
-
-        # Play Button
+        # Load button images
         self.playImg = PhotoImage(file=resource_path(path.join("assets", "button", "play.png")))
+        self.recordImg = PhotoImage(file=resource_path(path.join("assets", "button", "record.png")))
+        self.stopImg = PhotoImage(file=resource_path(path.join("assets", "button", "stop.png")))
 
-        self.center_frame = Frame(self)
-        self.center_frame.pack(expand=True, fill=BOTH)
+        # Toolbar
+        toolbar = Frame(self)
+        toolbar.pack(side="top", fill=X, padx=4, pady=2)
+
+        t_ed = self.text_content.get("editor", {})
+
+        self.playBtn = Button(toolbar, image=self.playImg, command=self.macro.start_playback,
+                              state=DISABLED)
+        self.playBtn.pack(side=LEFT, padx=2)
+
+        self.recordBtn = Button(toolbar, image=self.recordImg, command=self.macro.start_record)
+        self.recordBtn.pack(side=LEFT, padx=2)
+
+        Separator(toolbar, orient="vertical").pack(side=LEFT, fill="y", padx=6)
+
+        self.editBtn = Button(toolbar, text=t_ed.get("toolbar_edit", "Edit"),
+                              command=self._toolbar_edit, state=DISABLED)
+        self.editBtn.pack(side=LEFT, padx=2)
+
+        self.deleteBtn = Button(toolbar, text=t_ed.get("toolbar_delete", "Delete"),
+                                command=self._toolbar_delete, state=DISABLED)
+        self.deleteBtn.pack(side=LEFT, padx=2)
+
+        # Macro editor table
+        self.editor = MacroEditor(self, self.text_content)
+        self.editor.pack(expand=True, fill=BOTH)
 
         # Import record if opened with .pmr extension
         if len(argv) > 1:
             with open(sys.argv[1], 'r') as record:
                 loaded_content = load(record)
             self.macro.import_record(loaded_content)
-            self.playBtn = Button(self.center_frame, image=self.playImg, command=self.macro.start_playback)
+            self.playBtn.configure(state="normal", command=self.macro.start_playback)
             self.macro_recorded = True
             self.macro_saved = True
-        else:
-            self.playBtn = Button(self.center_frame, image=self.playImg, state=DISABLED)
-        self.playBtn.pack(side=LEFT, padx=50)
-
-        # Record Button
-        self.recordImg = PhotoImage(file=resource_path(path.join("assets", "button", "record.png")))
-        self.recordBtn = Button(self.center_frame, image=self.recordImg, command=self.macro.start_record)
-        self.recordBtn.pack(side=RIGHT, padx=50)
-
-        # Stop Button
-        self.stopImg = PhotoImage(file=resource_path(path.join("assets", "button", "stop.png")))
+            self.editor.refresh(self.macro.macro_events)
+            self._set_edit_delete_state("normal")
 
         record_management = RecordFileManagement(self, self.menu)
 
@@ -185,3 +202,26 @@ class MainApp(Window):
                         NewVerAvailable(self, self.version.new_version)
             except Exception:
                 pass
+
+    def _set_edit_delete_state(self, state):
+        self.editBtn.configure(state=state)
+        self.deleteBtn.configure(state=state)
+
+    def _toolbar_edit(self):
+        gi = self.editor.get_selected_group_index()
+        if gi is None:
+            return
+        from windows.editor.edit_event_popup import EditEventPopup
+        EditEventPopup(self, self.editor, gi)
+
+    def _toolbar_delete(self):
+        gi = self.editor.get_selected_group_index()
+        if gi is None:
+            return
+        group = self.editor._groups[gi]
+        events = self.macro.macro_events.get("events", [])
+        if group["kind"] == "move_group":
+            del events[group["start"]:group["end"] + 1]
+        else:
+            del events[group["index"]]
+        self.editor.refresh(self.macro.macro_events)

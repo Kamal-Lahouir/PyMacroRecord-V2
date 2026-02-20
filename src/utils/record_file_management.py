@@ -92,6 +92,8 @@ class RecordFileManagement:
                         self.main_app.settings.settings_dict["Playback"] = macro_settings["Playback"]
                         self.main_app.settings.settings_dict["Minimization"] = macro_settings["Minimization"]
                         self.main_app.settings.settings_dict["After_Playback"] = macro_settings["After_Playback"]
+            self.main_app.editor.refresh(self.main_app.macro.macro_events)
+            self.main_app._set_edit_delete_state("normal")
         self.main_app.prevent_record = False
 
 
@@ -112,3 +114,6 @@ class RecordFileManagement:
         self.main_app.current_file = None
         self.main_app.macro_saved = False
         self.main_app.macro_recorded = False
+        self.main_app.macro.macro_events = {"events": []}
+        self.main_app.editor.refresh({"events": []})
+        self.main_app._set_edit_delete_state(DISABLED)

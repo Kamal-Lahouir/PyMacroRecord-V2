@@ -159,6 +159,32 @@
         }
       }
     },
+    "editor": {
+      "col_id": "ID",
+      "col_action": "Action",
+      "col_value": "Value",
+      "col_comment": "Comment",
+      "action_cursor_move": "Mouse Move",
+      "action_left_click": "Left Click",
+      "action_right_click": "Right Click",
+      "action_middle_click": "Middle Click",
+      "action_scroll": "Scroll",
+      "action_key_press": "Key Press",
+      "action_key_release": "Key Release",
+      "edit_title": "Edit Action",
+      "start_x": "Start X",
+      "start_y": "Start Y",
+      "end_x": "End X",
+      "end_y": "End Y",
+      "coord_x": "X",
+      "coord_y": "Y",
+      "timestamp": "Delay (s)",
+      "comment": "Comment",
+      "steps": "steps",
+      "toolbar_edit": "Edit",
+      "toolbar_delete": "Delete",
+      "status_actions": "actions"
+    },
     "others_menu": {
       "others_text": "Others",
       "donors_text": "Donors",
