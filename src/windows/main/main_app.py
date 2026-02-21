@@ -11,13 +11,14 @@ from tkinter import (
     BOTTOM,
     DISABLED,
     LEFT,
+    Menu,
     RIGHT,
     SUNKEN,
     PhotoImage,
     W,
     X,
 )
-from tkinter.ttk import Button, Frame, Label, Separator
+from tkinter.ttk import Button, Frame, Label, Notebook, Separator
 
 from PIL import Image
 from pystray import Icon, MenuItem
@@ -31,6 +32,7 @@ from utils.user_settings import UserSettings
 from utils.version import Version
 from utils.warning_pop_up_save import confirm_save
 from windows.editor.macro_editor import MacroEditor
+from windows.main.macro_tab import MacroTab
 from windows.main.quick_settings_bar import QuickSettingsBar
 from windows.main.menu_bar import MenuBar
 from windows.others.new_ver_avalaible import NewVerAvailable
@@ -60,11 +62,10 @@ class MainApp(Window):
 
         self.load_language()
 
-        # For save message purpose
-        self.macro_saved = False
-        self.macro_recorded = False
-        self.current_file = None
         self.prevent_record = False
+        self._tabs = []          # list[MacroTab]
+        self._tab_counter = 0    # for naming new tabs
+        self._switching_tabs = False  # guard against reentrant tab-change
 
         self.version = Version(self.settings.settings_dict, self)
 
@@ -145,20 +146,35 @@ class MainApp(Window):
         self.quick_settings = QuickSettingsBar(self)
         self.quick_settings.pack(side="top", fill=X, padx=4, pady=(0, 2))
 
-        # Macro editor table
-        self.editor = MacroEditor(self, self.text_content)
-        self.editor.pack(expand=True, fill=BOTH)
+        # Notebook for multiple tabs
+        self._notebook = Notebook(self)
+        self._notebook.pack(expand=True, fill=BOTH)
+        self._notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+        self._notebook.bind("<Button-3>", self._on_tab_right_click)
+
+        # "+" placeholder tab — clicking it opens a new tab
+        self._plus_frame = Frame(self._notebook)
+        self._notebook.add(self._plus_frame, text=" + ")
+
+        # Initial tab
+        self._add_tab()
 
         # Import record if opened with .pmr extension
         if len(argv) > 1:
             with open(sys.argv[1], 'r') as record:
                 loaded_content = load(record)
             self.macro.import_record(loaded_content)
+            self._sync_tab_events()
             self.playBtn.configure(state="normal", command=self.macro.start_playback)
             self.macro_recorded = True
             self.macro_saved = True
             self.editor.refresh(self.macro.macro_events)
             self._set_edit_delete_state("normal")
+            tab = self._get_active_tab()
+            if tab:
+                name = path.splitext(path.basename(argv[1]))[0]
+                tab.name = name
+                self._notebook.tab(tab.frame, text=name)
 
         record_management = RecordFileManagement(self, self.menu)
 
@@ -166,6 +182,8 @@ class MainApp(Window):
         self.bind('<Control-s>', record_management.save_macro)
         self.bind('<Control-l>', record_management.load_macro)
         self.bind('<Control-n>', record_management.new_macro)
+        self.bind('<Control-t>', lambda e: self._add_tab())
+        self.bind('<Control-w>', lambda e: self._close_active_tab())
 
         self.protocol("WM_DELETE_WINDOW", self.quit_software)
         if platform.lower() != "darwin":
@@ -181,6 +199,183 @@ class MainApp(Window):
                 if time() > self.settings.settings_dict["Others"]["Remind_new_ver_at"]:
                     NewVerAvailable(self, self.version.new_version)
         self.mainloop()
+
+    # ── Per-tab state properties ───────────────────────────────────────
+
+    @property
+    def editor(self):
+        tab = self._get_active_tab()
+        return tab.editor if tab else None
+
+    @property
+    def macro_recorded(self):
+        tab = self._get_active_tab()
+        return tab.macro_recorded if tab else False
+
+    @macro_recorded.setter
+    def macro_recorded(self, v):
+        tab = self._get_active_tab()
+        if tab:
+            tab.macro_recorded = v
+
+    @property
+    def macro_saved(self):
+        tab = self._get_active_tab()
+        return tab.macro_saved if tab else False
+
+    @macro_saved.setter
+    def macro_saved(self, v):
+        tab = self._get_active_tab()
+        if tab:
+            tab.macro_saved = v
+
+    @property
+    def current_file(self):
+        tab = self._get_active_tab()
+        return tab.current_file if tab else None
+
+    @current_file.setter
+    def current_file(self, v):
+        tab = self._get_active_tab()
+        if tab:
+            tab.current_file = v
+
+    # ── Tab management ─────────────────────────────────────────────────
+
+    def _add_tab(self, name=None, macro_events=None):
+        self._tab_counter += 1
+        if name is None:
+            name = f"Macro {self._tab_counter}"
+
+        frame = Frame(self._notebook)
+        editor = MacroEditor(frame, self.text_content, main_app=self)
+        editor.pack(expand=True, fill=BOTH)
+
+        # Insert before the "+" tab
+        plus_idx = self._notebook.index(str(self._plus_frame))
+        self._notebook.insert(plus_idx, frame, text=name)
+
+        tab = MacroTab(name=name, frame=frame, editor=editor)
+        if macro_events is not None:
+            tab.macro_events = macro_events
+        self._tabs.append(tab)
+
+        # Select the new tab (triggers _on_tab_changed)
+        self._notebook.select(frame)
+        return tab
+
+    def _get_active_tab(self):
+        if not self._tabs:
+            return None
+        selected = self._notebook.select()
+        for tab in self._tabs:
+            if str(tab.frame) == selected:
+                return tab
+        return None
+
+    def _get_tab_by_frame(self, frame_path):
+        for tab in self._tabs:
+            if str(tab.frame) == frame_path:
+                return tab
+        return None
+
+    def _sync_tab_events(self):
+        """Push macro.macro_events reference into the active tab."""
+        tab = self._get_active_tab()
+        if tab is not None:
+            tab.macro_events = self.macro.macro_events
+
+    def _update_active_tab_title(self):
+        """Update active tab's notebook title from current_file or tab.name."""
+        tab = self._get_active_tab()
+        if tab is None:
+            return
+        if tab.current_file:
+            title = path.splitext(path.basename(tab.current_file))[0]
+        else:
+            title = tab.name
+        self._notebook.tab(tab.frame, text=title)
+
+    def _on_tab_changed(self, event=None):
+        if self._switching_tabs:
+            return
+        selected = self._notebook.select()
+
+        # Clicked the "+" tab → create a new tab
+        if selected == str(self._plus_frame):
+            self._switching_tabs = True
+            self._add_tab()
+            self._switching_tabs = False
+            return
+
+        tab = self._get_tab_by_frame(selected)
+        if tab is None:
+            return
+
+        # Sync macro engine to this tab's events
+        self.macro.macro_events = tab.macro_events
+
+        # Update toolbar state to reflect this tab
+        if tab.macro_recorded:
+            self._set_edit_delete_state("normal")
+            self.playBtn.configure(state="normal", command=self.macro.start_playback)
+        else:
+            self._set_edit_delete_state(DISABLED)
+            self.playBtn.configure(state=DISABLED)
+
+    def _on_tab_right_click(self, event):
+        try:
+            nb_idx = self._notebook.index(f"@{event.x},{event.y}")
+        except Exception:
+            return
+        tab_id = self._notebook.tabs()[nb_idx]
+        if tab_id == str(self._plus_frame):
+            return
+        menu = Menu(self, tearoff=0)
+        menu.add_command(label="Close Tab",
+                         command=lambda: self._close_tab_at(nb_idx))
+        menu.add_command(label="Close All Tabs",
+                         command=self._close_all_tabs)
+        menu.post(event.x_root, event.y_root)
+
+    def _close_active_tab(self):
+        tab = self._get_active_tab()
+        if tab is None:
+            return
+        nb_idx = list(self._notebook.tabs()).index(str(tab.frame))
+        self._close_tab_at(nb_idx)
+
+    def _close_tab_at(self, nb_idx):
+        tab_id = self._notebook.tabs()[nb_idx]
+        tab = self._get_tab_by_frame(tab_id)
+        if tab is None:
+            return
+        if not tab.macro_saved and tab.macro_recorded:
+            # Temporarily select this tab so properties work correctly
+            self._notebook.select(tab.frame)
+            wantToSave = confirm_save(self)
+            if wantToSave:
+                RecordFileManagement(self, self.menu).save_macro()
+            elif wantToSave is None:
+                return
+        self._notebook.forget(nb_idx)
+        self._tabs.remove(tab)
+        tab.frame.destroy()
+        if not self._tabs:
+            self._switching_tabs = True
+            self._add_tab()
+            self._switching_tabs = False
+
+    def _close_all_tabs(self):
+        for tab in list(self._tabs):
+            nb_tabs = self._notebook.tabs()
+            try:
+                nb_idx = list(nb_tabs).index(str(tab.frame))
+            except ValueError:
+                continue
+            self._close_tab_at(nb_idx)
+
+    # ── Language / system tray ─────────────────────────────────────────
 
     def load_language(self):
         self.lang = self.settings.settings_dict["Language"]
@@ -213,12 +408,16 @@ class MainApp(Window):
         return True
 
     def quit_software(self, force=False):
-        if not self.macro_saved and self.macro_recorded and not force:
-            wantToSave = confirm_save(self)
-            if wantToSave:
-                RecordFileManagement(self, self.menu).save_macro()
-            elif wantToSave is None:
-                return
+        if not force:
+            # Check all tabs for unsaved changes
+            for tab in self._tabs:
+                if not tab.macro_saved and tab.macro_recorded:
+                    self._notebook.select(tab.frame)
+                    wantToSave = confirm_save(self)
+                    if wantToSave:
+                        RecordFileManagement(self, self.menu).save_macro()
+                    elif wantToSave is None:
+                        return
         if platform.lower() != "darwin":
             self.icon.stop()
         if platform.lower() == "linux":

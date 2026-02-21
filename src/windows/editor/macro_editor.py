@@ -46,10 +46,10 @@ def _set_group_disabled(events, group, value):
 
 
 class MacroEditor(Frame):
-    def __init__(self, parent, text_content):
+    def __init__(self, parent, text_content, main_app=None):
         super().__init__(parent)
         self.text_content = text_content
-        self.main_app = parent
+        self.main_app = main_app if main_app is not None else parent
         self._groups = []
         self._drag_item = None
 

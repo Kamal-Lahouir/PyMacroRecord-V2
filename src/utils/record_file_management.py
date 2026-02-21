@@ -25,6 +25,7 @@ class RecordFileManagement:
             self.main_app.current_file = macroSaved.name
             self.save_macro()
             self.main_app.macro_saved = True
+            self.main_app._update_active_tab_title()
         self.main_app.prevent_record = False
 
     def save_macro(self, event=None):
@@ -92,8 +93,10 @@ class RecordFileManagement:
                         self.main_app.settings.settings_dict["Playback"] = macro_settings["Playback"]
                         self.main_app.settings.settings_dict["Minimization"] = macro_settings["Minimization"]
                         self.main_app.settings.settings_dict["After_Playback"] = macro_settings["After_Playback"]
+            self.main_app._sync_tab_events()
             self.main_app.editor.refresh(self.main_app.macro.macro_events)
             self.main_app._set_edit_delete_state("normal")
+            self.main_app._update_active_tab_title()
         self.main_app.prevent_record = False
 
 
@@ -115,5 +118,10 @@ class RecordFileManagement:
         self.main_app.macro_saved = False
         self.main_app.macro_recorded = False
         self.main_app.macro.macro_events = {"events": []}
+        self.main_app._sync_tab_events()
         self.main_app.editor.refresh({"events": []})
         self.main_app._set_edit_delete_state(DISABLED)
+        tab = self.main_app._get_active_tab()
+        if tab:
+            tab.name = f"Macro {self.main_app._tab_counter}"
+            self.main_app._notebook.tab(tab.frame, text=tab.name)

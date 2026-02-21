@@ -130,6 +130,7 @@ class Macro:
         if userSettings["Minimization"]["When_Recording"]:
             self.main_app.deiconify()
 
+        self.main_app._sync_tab_events()
         self.main_app.editor.refresh(self.macro_events)
         self.main_app._set_edit_delete_state("normal")
 
