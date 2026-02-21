@@ -159,6 +159,17 @@
         }
       }
     },
+    "quick_settings": {
+      "record_label": "● REC",
+      "mouse_move": "Mouse Move",
+      "mouse_click": "Clicks",
+      "keyboard": "Keys",
+      "play_label": "▶ PLAY",
+      "speed": "Speed",
+      "repeat": "Repeat",
+      "infinite": "∞ Infinite",
+      "delay": "Delay"
+    },
     "editor": {
       "col_id": "ID",
       "col_action": "Action",

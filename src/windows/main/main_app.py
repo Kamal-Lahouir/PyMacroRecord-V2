@@ -31,6 +31,7 @@ from utils.user_settings import UserSettings
 from utils.version import Version
 from utils.warning_pop_up_save import confirm_save
 from windows.editor.macro_editor import MacroEditor
+from windows.main.quick_settings_bar import QuickSettingsBar
 from windows.main.menu_bar import MenuBar
 from windows.others.new_ver_avalaible import NewVerAvailable
 from windows.window import Window
@@ -48,8 +49,9 @@ class MainApp(Window):
     """Main windows of the application"""
 
     def __init__(self):
-        super().__init__("PyMacroRecord", 900, 520)
+        super().__init__("PyMacroRecord", 980, 560)
         self.resizable(True, True)
+        self.minsize(720, 420)
         self.attributes("-topmost", 1)
         if platform == "win32":
             self.iconbitmap(resource_path(path.join("assets", "logo.ico")))
@@ -138,6 +140,10 @@ class MainApp(Window):
         self.findReplaceBtn = Button(toolbar, text=t_ed.get("toolbar_find_replace", "Find & Replace"),
                                      command=self._toolbar_find_replace, state=DISABLED)
         self.findReplaceBtn.pack(side=LEFT, padx=2)
+
+        # Quick settings bar (recording options + playback speed/repeat/delay)
+        self.quick_settings = QuickSettingsBar(self)
+        self.quick_settings.pack(side="top", fill=X, padx=4, pady=(0, 2))
 
         # Macro editor table
         self.editor = MacroEditor(self, self.text_content)
