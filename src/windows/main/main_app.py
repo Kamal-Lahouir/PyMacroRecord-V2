@@ -105,6 +105,10 @@ class MainApp(Window):
                                 command=self._toolbar_delete, state=DISABLED)
         self.deleteBtn.pack(side=LEFT, padx=2)
 
+        self.playFromBtn = Button(toolbar, text=t_ed.get("toolbar_play_from", "▶ From here"),
+                                  command=self._toolbar_play_from_here, state=DISABLED)
+        self.playFromBtn.pack(side=LEFT, padx=2)
+
         Separator(toolbar, orient="vertical").pack(side=LEFT, fill="y", padx=6)
 
         self.moveUpBtn = Button(toolbar, text=t_ed.get("toolbar_move_up", "▲ Up"),
@@ -231,9 +235,9 @@ class MainApp(Window):
                 pass
 
     def _set_edit_delete_state(self, state):
-        for btn in (self.editBtn, self.deleteBtn, self.moveUpBtn,
-                    self.moveDownBtn, self.toggleBtn, self.addDelayBtn,
-                    self.findReplaceBtn):
+        for btn in (self.editBtn, self.deleteBtn, self.playFromBtn,
+                    self.moveUpBtn, self.moveDownBtn, self.toggleBtn,
+                    self.addDelayBtn, self.findReplaceBtn):
             btn.configure(state=state)
 
     def _toolbar_edit(self):
@@ -254,6 +258,17 @@ class MainApp(Window):
         else:
             del events[group["index"]]
         self.editor.refresh(self.macro.macro_events)
+
+    def _toolbar_play_from_here(self):
+        gi = self.editor.get_selected_group_index()
+        if gi is None or not self._groups_available():
+            return
+        group = self.editor._groups[gi]
+        start_idx = group["start"] if group["kind"] == "move_group" else group["index"]
+        self.macro.start_playback(start_event_index=start_idx)
+
+    def _groups_available(self):
+        return bool(self.editor._groups)
 
     def _toolbar_add_delay(self):
         from windows.editor.insert_delay_popup import InsertDelayPopup

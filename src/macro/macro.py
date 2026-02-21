@@ -37,6 +37,7 @@ class Macro:
         self.mouse_listener = None
         self.time = time()
         self.event_delta_time=0
+        self._start_event_index = 0
 
         self.keyboard_listener = keyboard.Listener(
                 on_press=self.__on_press, on_release=self.__on_release
@@ -134,7 +135,8 @@ class Macro:
 
         print("record stopped")
 
-    def start_playback(self):
+    def start_playback(self, start_event_index=0):
+        self._start_event_index = start_event_index
         userSettings = self.user_settings.settings_dict
         self.playback = True
         self.main_app.playBtn.configure(
@@ -214,7 +216,9 @@ class Macro:
         now = time()
 
         while self.playback and (is_infinite or repeat_count < repeat_times):
-            for events in range(len(self.macro_events["events"])):
+            # First repeat can start mid-macro (play from selected row)
+            start_idx = self._start_event_index if repeat_count == 0 else 0
+            for events in range(start_idx, len(self.macro_events["events"])):
                 elapsed_time = int(time() - now)
                 self.main_app.status_text.configure(
                     text=f"Repeat: {repeat_count + 1}/{repeat_times}, Time elapsed: {elapsed_time}s")
@@ -237,6 +241,11 @@ class Macro:
                 # Skip disabled events
                 if self.macro_events["events"][events].get("disabled", False):
                     continue
+
+                # Highlight the active row in the editor (thread-safe via after())
+                self.main_app.after(
+                    0, lambda i=events: self.main_app.editor.highlight_event(i)
+                )
 
                 if event_type == "delayEvent":  # Pure delay — already slept above
                     continue
@@ -300,6 +309,8 @@ class Macro:
                     sleep(userSettings["Playback"]["Repeat"]["Delay"])
 
         self.unPressEverything(keyToUnpress)
+        # Clear the playing highlight only on natural completion
+        self.main_app.after(0, self.main_app.editor.clear_highlight)
         if userSettings["Playback"]["Repeat"]["Interval"] == 0 and userSettings["Playback"]["Repeat"]["For"] == 0 and repeat_count:
             self.stop_playback()
             if userSettings["Minimization"]["When_Playing"]:

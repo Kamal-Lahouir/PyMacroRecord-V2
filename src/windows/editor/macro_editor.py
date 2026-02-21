@@ -69,6 +69,9 @@ class MacroEditor(Frame):
         self.tree.column("comment", width=180, minwidth=80)
 
         self.tree.tag_configure("disabled", foreground="#999999")
+        self.tree.tag_configure("playing", background="#c8e6c9")
+        self._event_to_group = {}
+        self._playing_iid = None
 
         vsb = Scrollbar(self, orient=VERTICAL, command=self.tree.yview)
         hsb = Scrollbar(self, orient=HORIZONTAL, command=self.tree.xview)
@@ -91,6 +94,16 @@ class MacroEditor(Frame):
 
         events = macro_events.get("events", []) if macro_events else []
         self._groups = build_groups(events)
+        self._playing_iid = None
+
+        # Build reverse map: event_index → group_index
+        self._event_to_group = {}
+        for gi, group in enumerate(self._groups):
+            if group["kind"] == "move_group":
+                for i in range(group["start"], group["end"] + 1):
+                    self._event_to_group[i] = gi
+            else:
+                self._event_to_group[group["index"]] = gi
 
         t = self.text_content.get("editor", {})
 
@@ -163,6 +176,46 @@ class MacroEditor(Frame):
     def get_selected_group_index(self):
         sel = self.tree.selection()
         return int(sel[0]) if sel else None
+
+    # ------------------------------------------------------------------ playback highlight
+
+    def highlight_event(self, event_index):
+        """Called from playback thread via main_app.after() — highlights the active row."""
+        gi = self._event_to_group.get(event_index)
+        if gi is None:
+            return
+        iid = str(gi)
+        if iid == self._playing_iid:
+            return  # already highlighted
+        # Remove highlight from previous row
+        if self._playing_iid is not None:
+            try:
+                prev_tags = list(self.tree.item(self._playing_iid, "tags"))
+                if "playing" in prev_tags:
+                    prev_tags.remove("playing")
+                    self.tree.item(self._playing_iid, tags=prev_tags)
+            except Exception:
+                pass
+        # Apply highlight to new row
+        current_tags = list(self.tree.item(iid, "tags"))
+        if "playing" not in current_tags:
+            current_tags.append("playing")
+        self.tree.item(iid, tags=current_tags)
+        self._playing_iid = iid
+        self.tree.see(iid)
+        self.tree.selection_set(iid)
+
+    def clear_highlight(self):
+        """Remove the playing highlight (called when playback finishes naturally)."""
+        if self._playing_iid is not None:
+            try:
+                prev_tags = list(self.tree.item(self._playing_iid, "tags"))
+                if "playing" in prev_tags:
+                    prev_tags.remove("playing")
+                    self.tree.item(self._playing_iid, tags=prev_tags)
+            except Exception:
+                pass
+            self._playing_iid = None
 
     # ------------------------------------------------------------------ reorder
 
