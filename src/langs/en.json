@@ -203,7 +203,21 @@
       "fr_matches": "matches",
       "insert_delay_title": "Insert Delay",
       "insert_delay_label": "Delay (seconds)",
-      "status_actions": "actions"
+      "status_actions": "actions",
+      "action_type_text": "Type Text",
+      "action_loop_start": "Loop Start",
+      "action_loop_end": "Loop End",
+      "toolbar_type_text": "Type Text",
+      "toolbar_breakpoint": "● Break",
+      "toolbar_step": "→ Step",
+      "toolbar_continue": "▶ Continue",
+      "toolbar_loop": "⟳ Loop",
+      "type_text_title": "Insert Text",
+      "type_text_label": "Text to type",
+      "loop_title": "Wrap in Loop",
+      "loop_count_label": "Repeat count",
+      "loop_rows_label": "Rows to include",
+      "paused_status": "⏸ Paused — Step or Continue"
     },
     "others_menu": {
       "others_text": "Others",

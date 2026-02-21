@@ -139,6 +139,31 @@ class MainApp(Window):
                                      command=self._toolbar_find_replace, state=DISABLED)
         self.findReplaceBtn.pack(side=LEFT, padx=2)
 
+        Separator(toolbar, orient="vertical").pack(side=LEFT, fill="y", padx=6)
+
+        self.typeTextBtn = Button(toolbar, text=t_ed.get("toolbar_type_text", "Type Text"),
+                                  command=self._toolbar_type_text, state=DISABLED)
+        self.typeTextBtn.pack(side=LEFT, padx=2)
+
+        self.breakpointBtn = Button(toolbar, text=t_ed.get("toolbar_breakpoint", "● Break"),
+                                    command=lambda: self.editor.toggle_breakpoint(),
+                                    state=DISABLED)
+        self.breakpointBtn.pack(side=LEFT, padx=2)
+
+        self.loopBtn = Button(toolbar, text=t_ed.get("toolbar_loop", "⟳ Loop"),
+                              command=self._toolbar_loop, state=DISABLED)
+        self.loopBtn.pack(side=LEFT, padx=2)
+
+        Separator(toolbar, orient="vertical").pack(side=LEFT, fill="y", padx=6)
+
+        self.stepBtn = Button(toolbar, text=t_ed.get("toolbar_step", "→ Step"),
+                              command=self._toolbar_step, state=DISABLED)
+        self.stepBtn.pack(side=LEFT, padx=2)
+
+        self.continueBtn = Button(toolbar, text=t_ed.get("toolbar_continue", "▶ Continue"),
+                                  command=self._toolbar_continue, state=DISABLED)
+        self.continueBtn.pack(side=LEFT, padx=2)
+
         # Macro editor table
         self.editor = MacroEditor(self, self.text_content)
         self.editor.pack(expand=True, fill=BOTH)
@@ -240,7 +265,8 @@ class MainApp(Window):
     def _set_edit_delete_state(self, state):
         for btn in (self.editBtn, self.deleteBtn, self.playFromBtn,
                     self.moveUpBtn, self.moveDownBtn, self.toggleBtn,
-                    self.addDelayBtn, self.findReplaceBtn):
+                    self.addDelayBtn, self.findReplaceBtn,
+                    self.typeTextBtn, self.breakpointBtn, self.loopBtn):
             btn.configure(state=state)
 
     def _toolbar_edit(self):
@@ -280,3 +306,31 @@ class MainApp(Window):
     def _toolbar_find_replace(self):
         from windows.editor.search_replace_popup import SearchReplacePopup
         SearchReplacePopup(self, self.editor)
+
+    def _toolbar_type_text(self):
+        from windows.editor.insert_text_popup import InsertTextPopup
+        InsertTextPopup(self, self.editor)
+
+    def _toolbar_loop(self):
+        from windows.editor.insert_loop_popup import InsertLoopPopup
+        InsertLoopPopup(self, self.editor)
+
+    def _toolbar_step(self):
+        self.macro.step_once()
+
+    def _toolbar_continue(self):
+        self.macro.continue_playback()
+        self.stepBtn.configure(state=DISABLED)
+        self.continueBtn.configure(state=DISABLED)
+
+    def _on_playback_paused(self):
+        """Called from playback thread via after() when a breakpoint is hit."""
+        t = self.text_content.get("editor", {})
+        self.status_text.configure(text=t.get("paused_status", "⏸ Paused — Step or Continue"))
+        self.stepBtn.configure(state="normal")
+        self.continueBtn.configure(state="normal")
+
+    def _on_playback_resumed(self):
+        """Called from playback thread via after() after user clicks Step/Continue."""
+        self.stepBtn.configure(state=DISABLED)
+        self.continueBtn.configure(state=DISABLED)

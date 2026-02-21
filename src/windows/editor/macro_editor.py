@@ -115,6 +115,9 @@ class MacroEditor(Frame):
             "scrollEvent":     t.get("action_scroll",       "Scroll"),
             "keyboardEvent":   t.get("action_key_press",    "Key Press"),
             "delayEvent":      t.get("action_delay",        "Delay"),
+            "typeTextEvent":   t.get("action_type_text",    "Type Text"),
+            "loopStart":       t.get("action_loop_start",   "Loop Start"),
+            "loopEnd":         t.get("action_loop_end",     "Loop End"),
         }
         steps_label   = t.get("steps",        "steps")
         disabled_tag  = t.get("disabled_tag", "[off]")
@@ -133,6 +136,8 @@ class MacroEditor(Frame):
                 value   = (f"({e_start['x']},{e_start['y']}) \u2192 "
                            f"({e_end['x']},{e_end['y']})  [{n} {steps_label}]")
                 comment = e_start.get("comment", "")
+                if events[group["start"]].get("breakpoint", False):
+                    action = "● " + action
             else:
                 idx  = group["index"]
                 ev   = events[idx]
@@ -152,9 +157,21 @@ class MacroEditor(Frame):
                 elif etype == "delayEvent":
                     action = action_map["delayEvent"]
                     value  = f"{ev.get('timestamp', 0):.3f} s"
+                elif etype == "typeTextEvent":
+                    action = action_map.get(etype, etype)
+                    value  = f'"{ev.get("text", "")}"'
+                elif etype == "loopStart":
+                    action = action_map.get(etype, etype)
+                    value  = f'{ev.get("count", 1)}×'
+                elif etype == "loopEnd":
+                    action = action_map.get(etype, etype)
+                    value  = ""
                 else:
                     action = etype
                     value  = ""
+
+                if ev.get("breakpoint", False):
+                    action = "● " + action
 
             if is_disabled:
                 action = f"{action}  {disabled_tag}"
@@ -259,6 +276,19 @@ class MacroEditor(Frame):
         group  = self._groups[gi]
         current = _is_group_disabled(events, group)
         _set_group_disabled(events, group, not current)
+        self.refresh(self.main_app.macro.macro_events)
+        self.tree.selection_set(str(gi))
+
+    def toggle_breakpoint(self, gi=None):
+        if gi is None:
+            gi = self.get_selected_group_index()
+        if gi is None:
+            return
+        events = self.main_app.macro.macro_events.get("events", [])
+        group = self._groups[gi]
+        idx = group["start"] if group["kind"] == "move_group" else group["index"]
+        ev = events[idx]
+        ev["breakpoint"] = not ev.get("breakpoint", False)
         self.refresh(self.main_app.macro.macro_events)
         self.tree.selection_set(str(gi))
 

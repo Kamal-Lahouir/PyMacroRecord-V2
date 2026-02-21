@@ -1,7 +1,7 @@
 from datetime import datetime
 from os import getlogin, system
 from sys import platform
-from threading import Thread
+from threading import Thread, Event as ThreadEvent
 from time import sleep, time
 from tkinter import DISABLED, NORMAL, messagebox
 
@@ -38,6 +38,9 @@ class Macro:
         self.time = time()
         self.event_delta_time=0
         self._start_event_index = 0
+        self._pause_event = ThreadEvent()
+        self._pause_event.set()  # set = not paused
+        self._step_mode = False
 
         self.keyboard_listener = keyboard.Listener(
                 on_press=self.__on_press, on_release=self.__on_release
@@ -216,69 +219,99 @@ class Macro:
         now = time()
 
         while self.playback and (is_infinite or repeat_count < repeat_times):
-            # First repeat can start mid-macro (play from selected row)
             start_idx = self._start_event_index if repeat_count == 0 else 0
-            for events in range(start_idx, len(self.macro_events["events"])):
+            loop_stack = []  # each frame: {"count": int, "start_idx": int}
+            event_idx = start_idx
+
+            while event_idx < len(self.macro_events["events"]) and self.playback:
                 elapsed_time = int(time() - now)
                 self.main_app.status_text.configure(
                     text=f"Repeat: {repeat_count + 1}/{repeat_times}, Time elapsed: {elapsed_time}s")
-                if not self.playback:
-                    self.unPressEverything(keyToUnpress)
-                    return
+
+                ev = self.macro_events["events"][event_idx]
 
                 if userSettings["Others"]["Fixed_timestamp"] > 0:
                     timeSleep = userSettings["Others"]["Fixed_timestamp"]
                 else:
-                    timeSleep = (
-                            self.macro_events["events"][events]["timestamp"]
-                            * (1 / userSettings["Playback"]["Speed"])
-                    )
+                    timeSleep = ev.get("timestamp", 0) * (1 / userSettings["Playback"]["Speed"])
                 if timeSleep < 0:
                     timeSleep = abs(timeSleep)
                 sleep(timeSleep)
-                event_type = self.macro_events["events"][events]["type"]
+
+                if not self.playback:
+                    self.unPressEverything(keyToUnpress)
+                    return
+
+                event_type = ev["type"]
 
                 # Skip disabled events
-                if self.macro_events["events"][events].get("disabled", False):
+                if ev.get("disabled", False):
+                    event_idx += 1
                     continue
 
-                # Highlight the active row in the editor (thread-safe via after())
-                self.main_app.after(
-                    0, lambda i=events: self.main_app.editor.highlight_event(i)
-                )
+                # Highlight active row
+                self.main_app.after(0, lambda i=event_idx: self.main_app.editor.highlight_event(i))
 
-                if event_type == "delayEvent":  # Pure delay — already slept above
+                # Breakpoint / step-mode pause
+                if ev.get("breakpoint", False) or self._step_mode:
+                    self._step_mode = False
+                    self._pause_event.clear()
+                    self.main_app.after(0, self.main_app._on_playback_paused)
+                    self._pause_event.wait()
+                    self.main_app.after(0, self.main_app._on_playback_resumed)
+                    if not self.playback:
+                        self.unPressEverything(keyToUnpress)
+                        return
+
+                # Loop markers
+                if event_type == "loopStart":
+                    loop_stack.append({"count": ev.get("count", 1) - 1, "start_idx": event_idx})
+                    event_idx += 1
                     continue
 
-                if event_type == "cursorMove":  # Cursor Move
-                    self.mouseControl.position = (
-                        self.macro_events["events"][events]["x"],
-                        self.macro_events["events"][events]["y"],
-                    )
+                if event_type == "loopEnd":
+                    if loop_stack:
+                        frame = loop_stack[-1]
+                        if frame["count"] > 0:
+                            frame["count"] -= 1
+                            event_idx = frame["start_idx"] + 1
+                            continue
+                        else:
+                            loop_stack.pop()
+                    event_idx += 1
+                    continue
 
-                elif event_type in click_func:  # Mouse Click
-                    self.mouseControl.position = (
-                        self.macro_events["events"][events]["x"],
-                        self.macro_events["events"][events]["y"],
-                    )
-                    if self.macro_events["events"][events]["pressed"]:
+                if event_type == "delayEvent":
+                    event_idx += 1
+                    continue
+
+                if event_type == "typeTextEvent":
+                    text = ev.get("text", "")
+                    if text:
+                        self.keyboardControl.type(text)
+                    event_idx += 1
+                    continue
+
+                if event_type == "cursorMove":
+                    self.mouseControl.position = (ev["x"], ev["y"])
+
+                elif event_type in click_func:
+                    self.mouseControl.position = (ev["x"], ev["y"])
+                    if ev["pressed"]:
                         self.mouseControl.press(click_func[event_type])
                     else:
                         self.mouseControl.release(click_func[event_type])
 
                 elif event_type == "scrollEvent":
-                    self.mouseControl.scroll(
-                        self.macro_events["events"][events]["dx"],
-                        self.macro_events["events"][events]["dy"],
-                    )
+                    self.mouseControl.scroll(ev["dx"], ev["dy"])
 
-                elif event_type == "keyboardEvent":  # Keyboard Press,Release
-                    if self.macro_events["events"][events]["key"] is not None:
+                elif event_type == "keyboardEvent":
+                    if ev["key"] is not None:
                         try:
-                            if "Key." not in self.macro_events["events"][events]["key"]:
-                                keyToPress = self.macro_events["events"][events]["key"]
+                            if "Key." not in ev["key"]:
+                                keyToPress = ev["key"]
                             else:
-                                keyToPress = eval(self.macro_events["events"][events]["key"])
+                                keyToPress = eval(ev["key"])
                             if isinstance(keyToPress, str):
                                 if ">" in keyToPress:
                                     try:
@@ -287,7 +320,7 @@ class Macro:
                                         keyToPress = None
                             if self.playback:
                                 if keyToPress is not None:
-                                    if self.macro_events["events"][events]["pressed"]:
+                                    if ev["pressed"]:
                                         self.keyboardControl.press(keyToPress)
                                         if keyToPress not in keyToUnpress:
                                             keyToUnpress.append(keyToPress)
@@ -301,6 +334,8 @@ class Macro:
                             messagebox.showerror("Error",
                                                  f"An unexpected error occurred\n{e}")
                             self.stop_playback()
+
+                event_idx += 1
 
             repeat_count += 1
 
@@ -323,6 +358,9 @@ class Macro:
         self.mouseControl.release(Button.middle)
 
     def stop_playback(self, playback_stopped_manually=False):
+        # Unblock any paused thread
+        self._step_mode = False
+        self._pause_event.set()
         self.playback = False
         if not playback_stopped_manually:
             print("playback stopped")
@@ -371,6 +409,16 @@ class Macro:
                     system("pmset sleepnow")
             force_close = True
             self.main_app.quit_software(force_close)
+
+    def step_once(self):
+        """Advance exactly one event then pause again."""
+        self._step_mode = True
+        self._pause_event.set()
+
+    def continue_playback(self):
+        """Resume normal playback (clear step mode and unpause)."""
+        self._step_mode = False
+        self._pause_event.set()
 
     def import_record(self, record):
         self.macro_events = record

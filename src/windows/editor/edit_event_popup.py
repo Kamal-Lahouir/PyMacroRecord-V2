@@ -30,6 +30,8 @@ class EditEventPopup(Popup):
                 self._build_keyboard(content_frame, ev)
             elif etype == "scrollEvent":
                 self._build_scroll(content_frame, ev)
+            elif etype == "typeTextEvent":
+                self._build_type_text(content_frame, ev)
             else:
                 self._build_generic(content_frame, ev)
 
@@ -84,6 +86,16 @@ class EditEventPopup(Popup):
         t = self.t
         self._add_field(parent, t.get("timestamp", "Delay (s)"), "timestamp", ev.get("timestamp", 0))
 
+    def _build_type_text(self, parent, ev):
+        from tkinter import StringVar, Label, Entry, LEFT
+        row = Frame(parent)
+        row.pack(fill="x", pady=2)
+        Label(row, text=self.t.get("type_text_label", "Text:") + ":", width=12, anchor="w").pack(side=LEFT)
+        var = StringVar(value=ev.get("text", ""))
+        Entry(row, textvariable=var).pack(side=LEFT, fill="x", expand=True)
+        self._fields["text"] = var
+        self._add_field(parent, self.t.get("timestamp", "Delay (s)"), "timestamp", ev.get("timestamp", 0))
+
     def _confirm(self):
         events = self.main_app.macro.macro_events.get("events", [])
         group = self.macro_editor._groups[self.group_index]
@@ -121,6 +133,9 @@ class EditEventPopup(Popup):
                 if "comment" in self._fields:
                     ev["comment"] = self._fields["comment"].get()
 
+                if etype == "typeTextEvent":
+                    if "text" in self._fields:
+                        ev["text"] = self._fields["text"].get()
                 if etype in ("leftClickEvent", "rightClickEvent", "middleClickEvent"):
                     ev["x"] = int(float(self._fields["x"].get()))
                     ev["y"] = int(float(self._fields["y"].get()))
