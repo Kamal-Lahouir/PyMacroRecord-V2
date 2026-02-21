@@ -69,6 +69,9 @@ class MainApp(Window):
         self.menu = MenuBar(self)  # Menu Bar
         self.macro = Macro(self)
 
+        from macro.macro_editor import MacroEditor as MacroEditorData
+        self.macro_editor = MacroEditorData(self.macro)
+
         self.validate_cmd = self.register(self.validate_input)
 
         self.hotkeyManager = HotkeysManager(self)
